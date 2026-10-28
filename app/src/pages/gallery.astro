@@ -1,0 +1,93 @@
+---
+import Base from '../layouts/Base.astro';
+import { getCollection } from 'astro:content';
+
+const photos = (await getCollection('timeline'))
+  .filter(m => m.data.image)
+  .sort((a, b) => b.data.sortDate.localeCompare(a.data.sortDate));
+---
+<Base title="照片墙" active="/gallery/">
+  <h1 class="hand-title">照片墙</h1>
+  <p class="hand-sub">每一张背后都有一天</p>
+
+  <div class="gallery">
+    {photos.map((p, i) => (
+      <figure class={`polaroid tape develop ${i % 2 ? 'tilt-r' : 'tilt-l'}`} data-full={p.data.image}>
+        <div class="photo-frame">
+          <img src={p.data.image} alt={p.data.alt} loading="lazy" />
+          <div class="develop-veil" aria-hidden="true"></div>
+        </div>
+        <figcaption>{p.data.date} · {p.data.title}</figcaption>
+      </figure>
+    ))}
+  </div>
+
+  <div class="lightbox" id="lightbox" hidden>
+    <img id="lightbox-img" alt="放大预览" />
+  </div>
+  <noscript><style>.develop .photo-frame img { filter: none; } .develop-veil { display: none; }</style></noscript>
+</Base>
+
+<style>
+.gallery {
+  columns: 3; column-gap: 30px; padding: 10px 4px;
+}
+.gallery figure { break-inside: avoid; margin-bottom: 34px; cursor: zoom-in; }
+@media (max-width: 900px) { .gallery { columns: 2; } }
+@media (max-width: 520px) { .gallery { columns: 1; } }
+.lightbox {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(30, 26, 20, 0.85);
+  display: flex; align-items: center; justify-content: center;
+  cursor: zoom-out; padding: 30px;
+}
+.lightbox[hidden] { display: none; }
+.lightbox img { max-width: 92vw; max-height: 88vh; border-radius: 6px; box-shadow: 0 10px 50px rgba(0,0,0,.5); }
+
+/* 冲洗显影：米色药液遮罩收缩 + 照片从淡白到显色 */
+.photo-frame { position: relative; overflow: hidden; border-radius: 2px; }
+.photo-frame img { transition: filter 2.2s ease .3s; }
+.develop .photo-frame img { filter: sepia(.5) brightness(1.5) contrast(.35) blur(2px); }
+.develop-veil {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, #f3ecdf 0%, #ece0c9 60%, #e6d7ba 100%);
+  transform-origin: top;
+}
+.develop.developed .photo-frame img { filter: sepia(0) brightness(1) contrast(1) blur(0); }
+.develop.developed .develop-veil {
+  animation: veilDrain 1.8s cubic-bezier(.4,0,.2,1) forwards;
+}
+@keyframes veilDrain {
+  0% { transform: scaleY(1); opacity: 1; }
+  70% { opacity: .9; }
+  100% { transform: scaleY(0); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .develop .photo-frame img { filter: none; }
+  .develop-veil { display: none; }
+}
+</style>
+<script>
+  const box = document.getElementById('lightbox')!;
+  const img = document.getElementById('lightbox-img') as HTMLImageElement;
+  document.querySelectorAll('.gallery figure').forEach(f => {
+    f.addEventListener('click', () => {
+      img.src = (f as HTMLElement).dataset.full || '';
+      box.hidden = false;
+    });
+  });
+  box.addEventListener('click', () => { box.hidden = true; });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') box.hidden = true; });
+
+  // 显影：进入视野后逐张"冲洗"出来
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(en => {
+      if (en.isIntersecting) {
+        const el = en.target as HTMLElement;
+        setTimeout(() => el.classList.add('developed'), Math.random() * 400);
+        io.unobserve(el);
+      }
+    });
+  }, { threshold: 0.25 });
+  document.querySelectorAll('.develop').forEach(el => io.observe(el));
+</script>

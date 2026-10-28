@@ -1,0 +1,47 @@
+---
+import '../styles/global.css';
+import { site } from '../config';
+
+interface Props { title?: string; active?: string; }
+const { title = '我们的恋爱博物馆', active = '' } = Astro.props;
+const path = Astro.url.pathname;
+const links = [
+  { href: '/', label: '首页' },
+  { href: '/timeline/', label: '时间轴' },
+  { href: '/gallery/', label: '照片墙' },
+  { href: '/diary/', label: '日记留言' },
+  { href: '/wishes/', label: '愿望清单' },
+  { href: '/map/', label: '足迹地图' },
+];
+---
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{title} · {site.coupleName}</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💌</text></svg>" />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css" />
+</head>
+<body>
+  <nav class="nav">
+    <div class="container nav-inner">
+      <a class="nav-brand" href="/">🏛️ 恋爱博物馆</a>
+      <button class="nav-toggle" aria-label="菜单" onclick="document.querySelector('.nav-links').classList.toggle('open')">☰</button>
+      <div class="nav-links">
+        {links.map(l => <a href={l.href} class={path === l.href ? 'active' : ''}>{l.label}</a>)}
+      </div>
+    </div>
+  </nav>
+  <main class="container">
+    <slot />
+  </main>
+  <footer class="footer">
+    <div class="container">把日子过成展品 · {site.coupleName} ❤</div>
+  </footer>
+  <script>
+    import '../scripts/cursor-magic';
+  </script>
+</body>
+</html>

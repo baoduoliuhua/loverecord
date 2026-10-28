@@ -1,0 +1,168 @@
+---
+// 馆长的一封信：剪贴纸 → 开盖 → 便签向上伸出展开
+// 完整复刻 CodePen 2W-the-sasster/LYvyYOj 的交互流程（按提供的 CSS+JS 源码）
+import { site } from '../config';
+const notes = site.letter.notes;
+---
+<div class="letter-scene">
+  <p class="letter-hint" id="letter-hint">✂️ 点一下贴纸，剪开这封信</p>
+  <div class="envelop" id="envelop">
+    <div class="envelop__back-paper"></div>
+    <div class="envelop__content js-envelop-content">
+      <div class="love-notes">
+        {notes.map((text, i) => (
+          <div class={`note js-note note-${i + 1}`} data-index={i} role="button" tabindex="0" aria-label={`便签 ${i + 1}`}>
+            <div class="note__text"><p>{text}</p></div>
+          </div>
+        ))}
+      </div>
+    </div>
+    <div class="envelop__front-paper"></div>
+    <div class="envelop__up-paper js-up-paper"></div>
+    <div class="envelop__sticker js-sticker" role="button" tabindex="0" aria-label="剪开贴纸">
+      <svg viewBox="0 0 32 30" width="26" height="24"><path d="M16 28 C8 20 1 14 1 8 A7.5 7.5 0 0 1 16 5 A7.5 7.5 0 0 1 31 8 C31 14 24 20 16 28Z" fill="#c9647f"/></svg>
+    </div>
+  </div>
+</div>
+
+<style>
+.letter-scene { text-align: center; margin: 60px 0 30px; }
+.letter-hint { color: var(--ink-soft); font-size: 15px; margin-bottom: 8px; min-height: 24px; }
+
+.envelop {
+  --f-color: #ba9872;
+  --s-color: #967b5c;
+  --tab-bg: #f9f9f9;
+  position: relative;
+  width: 300px; height: 200px;
+  margin: 180px auto 0;
+  filter: drop-shadow(3px 6px 0 rgba(61,58,52,.10));
+}
+.envelop__back-paper {
+  position: absolute; width: 100%; height: 100%; bottom: 0; left: 0;
+  border-radius: 11px; background: var(--s-color);
+  clip-path: polygon(0% 0%, 100% 0%, 90% 100%, 0% 90%);
+  z-index: 100;
+}
+.envelop__front-paper {
+  position: absolute; width: 100%; height: 100%; bottom: 0; left: 0;
+  border-radius: 11px; border: 5px solid var(--s-color);
+  background: var(--f-color);
+  clip-path: polygon(100% 0%, 50% 70%, 0% 0%, 0% 100%, 100% 100%);
+  z-index: 300;
+}
+/* 上盖：初始封住信封口 */
+.envelop__up-paper {
+  position: absolute; width: 100%; height: 100%; bottom: 0; left: 0;
+  border-radius: 11px; background: var(--s-color);
+  clip-path: polygon(0% 0%, 100% 0%, 50% 81%);
+  z-index: 400;
+  transition: transform .5s ease, bottom .5s ease;
+  transform-origin: center;
+}
+.envelop__up-paper.cursor { cursor: pointer; }
+/* 开盖：缩小移到信封左侧之外，完全不碰信纸，仍可点击合回 */
+.envelop.opened .envelop__up-paper {
+  transform: translate(-88%, -70%) rotate(150deg) scale(.5);
+  z-index: 450;
+}
+.envelop__sticker {
+  position: absolute; left: 50%; top: 30%; z-index: 400;
+  transform: translateX(-50%);
+  width: 64px; height: 44px;
+  background: #f9f9f9; border: 4px solid #e2e2e2;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: left .5s ease, transform .5s ease, opacity .4s .3s;
+}
+/* 贴纸被"剪"到左侧并淡出 */
+.envelop.cut .envelop__sticker {
+  left: -18%; opacity: 0; pointer-events: none;
+}
+.envelop__content {
+  position: absolute; width: 100%; height: 100%; bottom: 0; left: 0;
+  z-index: 200;
+  transition: height .5s ease;
+}
+.envelop.opened .envelop__content { height: 110%; }
+
+.love-notes { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; }
+.note {
+  width: 95%; height: 30%;
+  background: var(--tab-bg);
+  position: absolute; overflow: hidden;
+  transition: height .5s ease, box-shadow .3s;
+  box-shadow: 0 0 5px rgba(0,0,0,.35);
+  border-radius: 2px;
+  cursor: pointer; outline: none;
+}
+.note-1 { bottom: 60%; }
+.note-2 { bottom: 40%; }
+.note-3 { bottom: 20%; }
+/* 未开信时便签不可点 */
+.envelop:not(.opened) .note { pointer-events: none; }
+/* 便签向上伸出展开（底部插在信封里，文字从上部阅读） */
+.note.active { box-shadow: 0 6px 18px rgba(0,0,0,.25); }
+.note__text { padding: 14px 16px; }
+.note__text p { font-size: 15px; line-height: 1.8; text-align: center; color: var(--ink); }
+
+@media (max-width: 400px) {
+  .envelop { width: 270px; height: 180px; }
+  .note__text p { font-size: 14px; }
+}
+</style>
+
+<script>
+  const envelop = document.getElementById('envelop')!;
+  const sticker = envelop.querySelector('.js-sticker')!;
+  const upPaper = envelop.querySelector('.js-up-paper')!;
+  const hint = document.getElementById('letter-hint')!;
+  const notes = Array.from(envelop.querySelectorAll<HTMLElement>('.js-note'));
+  const mobile = window.matchMedia('(max-width: 400px)');
+  const tablet = window.matchMedia('(min-width: 400px) and (max-width: 600px)');
+
+  function resetNotes() {
+    notes.forEach(n => { n.classList.remove('active'); n.style.height = '30%'; });
+  }
+
+  // 第一步：剪开贴纸
+  sticker.addEventListener('click', () => {
+    envelop.classList.add('cut');
+    upPaper.classList.add('cursor');
+    hint.textContent = '💌 再点一下信封上盖，打开它';
+  });
+
+  // 第二步：翻开上盖；开盖状态下再点上盖则合回
+  upPaper.addEventListener('click', () => {
+    if (!envelop.classList.contains('cut')) return;
+    if (envelop.classList.contains('opened')) {
+      // 合盖：便签一并收起
+      resetNotes();
+      envelop.classList.remove('opened');
+      hint.textContent = '💌 再点一下信封上盖，打开它';
+      return;
+    }
+    envelop.classList.add('opened');
+    upPaper.classList.add('cursor');
+    hint.textContent = '📜 点便签展开读；收起便签后点上盖可合回';
+  });
+
+  // 第三步：便签展开/收起（高度规则与原作一致）
+  notes.forEach((note, i) => {
+    note.addEventListener('click', () => {
+      if (!envelop.classList.contains('opened')) return;
+      if (note.classList.contains('active')) {
+        note.classList.remove('active');
+        note.style.height = '30%';
+        return;
+      }
+      resetNotes();
+      note.classList.add('active');
+      // 加大展开高度，让文字完整露出信封上方（原作比例对中文两行不够）
+      const height = mobile.matches ? 165 + 40 * i : tablet.matches ? 120 + 21 * i : 100 + 20 * i;
+      note.style.height = height + '%';
+    });
+  });
+
+  window.addEventListener('resize', resetNotes);
+</script>

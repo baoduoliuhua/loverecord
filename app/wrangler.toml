@@ -1,0 +1,8 @@
+name = "loverecord"
+compatibility_date = "2025-11-01"
+pages_build_output_dir = "dist"
+
+# 部署时在 Cloudflare 控制台创建 KV 命名空间后，把真实 id 填到这里
+# [[kv_namespaces]]
+# binding = "DIARY"
+# id = "你的KV命名空间ID"

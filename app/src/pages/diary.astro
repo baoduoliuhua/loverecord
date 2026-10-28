@@ -1,0 +1,128 @@
+---
+import Base from '../layouts/Base.astro';
+---
+<Base title="日记留言" active="/diary/">
+  <h1 class="hand-title">日记 & 留言板</h1>
+  <p class="hand-sub">两个人的小房间</p>
+
+  <!-- 登录 -->
+  <div id="login-panel" class="card login-card" hidden>
+    <p style="margin-bottom:14px">输入我们的暗号才能进入：</p>
+    <div style="display:flex;gap:12px">
+      <input id="pwd-input" type="password" placeholder="共享密码" autocomplete="off" />
+      <button class="btn" id="login-btn">进入</button>
+    </div>
+    <p id="login-error" style="color:var(--accent);margin-top:10px" hidden>暗号不对，再试一次</p>
+  </div>
+
+  <!-- 主界面 -->
+  <div id="main-panel" hidden>
+    <div class="tabs">
+      <button class="tab active" data-tab="diary">📔 写日记</button>
+      <button class="tab" data-tab="message">💬 留言</button>
+    </div>
+    <form id="entry-form" class="card" style="margin-bottom:34px">
+      <div style="display:flex;gap:12px;margin-bottom:14px">
+        <input id="author-input" placeholder="署名（如：我 / 宝贝）" maxlength="20" style="max-width:220px" required />
+      </div>
+      <textarea id="content-input" rows="4" placeholder="今天想记下什么…" maxlength="5000" required></textarea>
+      <div style="text-align:right;margin-top:14px">
+        <button class="btn" type="submit" id="submit-btn">保存</button>
+      </div>
+    </form>
+    <div id="entries"></div>
+    <p id="empty-tip" style="text-align:center;color:var(--ink-soft)" hidden>还没有内容，写第一条吧</p>
+  </div>
+</Base>
+
+<style>
+.login-card { max-width: 460px; margin: 30px auto; }
+.tabs { display: flex; gap: 12px; margin-bottom: 18px; }
+.tab {
+  padding: 8px 22px; font-family: var(--font-hand); font-size: 17px;
+  background: transparent; border: 2px solid #e0d5c2; border-radius: 20px;
+  cursor: pointer; color: var(--ink-soft);
+}
+.tab.active { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.entry-card { margin-bottom: 20px; }
+.entry-meta { display: flex; justify-content: space-between; color: var(--ink-soft); font-size: 14px; margin-bottom: 8px; }
+.entry-author { color: var(--accent); font-weight: 700; }
+.entry-content { white-space: pre-wrap; font-size: 17px; }
+.entry-type { font-size: 13px; background: var(--paper-dark); padding: 2px 10px; border-radius: 10px; }
+</style>
+
+<script>
+  let currentTab: 'diary' | 'message' = 'diary';
+  const pwdKey = 'loverecord-diary-pwd';
+  let password = sessionStorage.getItem(pwdKey) || '';
+
+  const loginPanel = document.getElementById('login-panel')!;
+  const mainPanel = document.getElementById('main-panel')!;
+  const entriesBox = document.getElementById('entries')!;
+  const emptyTip = document.getElementById('empty-tip')!;
+
+  const esc = (s: string) => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+
+  async function loadEntries() {
+    const res = await fetch('/api/diary', { headers: { 'X-Diary-Password': password } });
+    if (res.status === 401) { showLogin(); return; }
+    const { entries } = await res.json();
+    const list = entries.filter((e: any) => e.type === currentTab);
+    emptyTip.hidden = list.length > 0;
+    entriesBox.innerHTML = list.map((e: any) => `
+      <div class="card entry-card">
+        <div class="entry-meta">
+          <span><span class="entry-author">${esc(e.author)}</span> · ${new Date(e.createdAt).toLocaleString('zh-CN')}</span>
+          <span class="entry-type">${e.type === 'diary' ? '日记' : '留言'}</span>
+        </div>
+        <div class="entry-content">${esc(e.content)}</div>
+      </div>`).join('');
+  }
+
+  function showLogin() { loginPanel.hidden = false; mainPanel.hidden = true; }
+  function showMain() { loginPanel.hidden = true; mainPanel.hidden = false; loadEntries(); }
+
+  document.getElementById('login-btn')!.addEventListener('click', async () => {
+    const pwd = (document.getElementById('pwd-input') as HTMLInputElement).value;
+    const res = await fetch('/api/diary', { method: 'HEAD', headers: { 'X-Diary-Password': pwd } });
+    if (res.status === 204) {
+      password = pwd; sessionStorage.setItem(pwdKey, pwd); showMain();
+    } else {
+      document.getElementById('login-error')!.hidden = false;
+    }
+  });
+
+  document.querySelectorAll<HTMLButtonElement>('.tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentTab = btn.dataset.tab as any;
+      loadEntries();
+    });
+  });
+
+  document.getElementById('entry-form')!.addEventListener('submit', async e => {
+    e.preventDefault();
+    const submitBtn = document.getElementById('submit-btn') as HTMLButtonElement;
+    submitBtn.disabled = true;
+    const res = await fetch('/api/diary', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Diary-Password': password },
+      body: JSON.stringify({
+        type: currentTab,
+        author: (document.getElementById('author-input') as HTMLInputElement).value,
+        content: (document.getElementById('content-input') as HTMLTextAreaElement).value,
+      }),
+    });
+    submitBtn.disabled = false;
+    if (res.ok) {
+      (document.getElementById('content-input') as HTMLTextAreaElement).value = '';
+      loadEntries();
+    } else {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || '保存失败，请重试');
+    }
+  });
+
+  if (password) showMain(); else showLogin();
+</script>

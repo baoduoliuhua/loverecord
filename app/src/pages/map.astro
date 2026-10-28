@@ -1,0 +1,61 @@
+---
+import Base from '../layouts/Base.astro';
+import { readFileSync } from 'node:fs';
+import { parse } from 'yaml';
+
+const places = parse(readFileSync('src/content/places.yaml', 'utf-8')) as { name: string; lat: number; lng: number; note: string }[];
+---
+<Base title="足迹地图" active="/map/">
+  <h1 class="hand-title">足迹地图</h1>
+  <p class="hand-sub">一起去过的地方，都会亮起来</p>
+
+  <div class="map-wrap card">
+    <div id="map"></div>
+  </div>
+
+  <ul class="place-list">
+    {places.map(p => <li class="card"><strong>📍 {p.name}</strong><span>{p.note}</span></li>)}
+  </ul>
+</Base>
+
+<style>
+.map-wrap { padding: 10px; }
+#map { width: 100%; height: 480px; border-radius: 8px; }
+.place-list { list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-top: 26px; }
+.place-list li { display: flex; flex-direction: column; gap: 4px; padding: 16px 20px; }
+.place-list span { color: var(--ink-soft); font-size: 14px; }
+</style>
+
+<script is:inline>
+  window._TMapSecurityConfig = {
+    serviceHost: 'http://127.0.0.1:__WB_HTTP_PORT__/_TMapService/_wbt/__WB_TMAP_SECRET__',
+  };
+</script>
+<script is:inline src="https://map.qq.com/api/gljs?v=1.exp"></script>
+<script define:vars={{ places }}>
+  window.addEventListener('load', () => {
+    if (typeof TMap === 'undefined') return;
+    const map = new TMap.Map('map', {
+      zoom: 5,
+      center: new TMap.LatLng(33.5, 115.0),
+    });
+    const icon = 'data:image/svg+xml,' + encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40"><path d="M16 39 C10 30 2 22 2 14 A14 14 0 1 1 30 14 C30 22 22 30 16 39Z" fill="#d47b5c" stroke="#fff" stroke-width="2"/><text x="16" y="19" text-anchor="middle" font-size="13" fill="#fff">❤</text></svg>'
+    );
+    new TMap.MultiMarker({
+      map,
+      styles: { love: new TMap.MarkerStyle({ width: 32, height: 40, src: icon, anchor: { x: 16, y: 40 } }) },
+      geometries: places.map((p, i) => ({
+        id: String(i), styleId: 'love', position: new TMap.LatLng(p.lat, p.lng),
+        properties: { title: p.name },
+      })),
+    });
+    new TMap.MultiLabel({
+      map,
+      styles: { name: new TMap.LabelStyle({ color: '#3d3a34', size: 14, offset: { x: 0, y: 12 }, strokeColor: '#ffffff', strokeWidth: 3 }) },
+      geometries: places.map((p, i) => ({
+        id: 'label' + i, styleId: 'name', position: new TMap.LatLng(p.lat, p.lng), content: p.name,
+      })),
+    });
+  });
+</script>

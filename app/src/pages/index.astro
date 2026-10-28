@@ -1,0 +1,151 @@
+---
+import Base from '../layouts/Base.astro';
+import Scene from '../components/Scene.astro';
+import LoveLetter from '../components/LoveLetter.astro';
+import { getCollection } from 'astro:content';
+import { site } from '../config';
+
+const memories = (await getCollection('timeline'))
+  .sort((a, b) => b.data.sortDate.localeCompare(a.data.sortDate));
+const latest = memories.slice(0, 3);
+
+const today = new Date();
+const days = Math.floor((today.getTime() - new Date(site.startDate + 'T00:00:00').getTime()) / 86400000) + 1;
+
+// 下一个纪念日
+const upcoming = site.anniversary.map(a => {
+  const d = new Date(a.date);
+  let next = new Date(today.getFullYear(), d.getMonth(), d.getDate());
+  if (next < today) next = new Date(today.getFullYear() + 1, d.getMonth(), d.getDate());
+  return { ...a, left: Math.ceil((next.getTime() - today.getTime()) / 86400000), next };
+}).sort((a, b) => a.left - b.left)[0];
+
+// 当前季节氛围
+const m = today.getMonth() + 1;
+const season = m >= 3 && m <= 5 ? 'spring' : m >= 6 && m <= 8 ? 'summer' : m >= 9 && m <= 11 ? 'autumn' : 'winter';
+---
+<Base title="首页" active="/">
+  <section class="hero reveal">
+    <p class="hero-sub">这里陈列着我们最重要的东西</p>
+    <h1 class="hero-title">{site.coupleName}</h1>
+    <div class="days-card">
+      <div class="days-label">今天是我们在一起的</div>
+      <div class="days-number">第 <span class="heartbeat-num">{days}</span> 天
+        <svg class="heartbeat-icon" viewBox="0 0 32 30" width="34" height="32" aria-hidden="true"><path d="M16 28 C8 20 1 14 1 8 A7.5 7.5 0 0 1 16 5 A7.5 7.5 0 0 1 31 8 C31 14 24 20 16 28Z" fill="#d47b5c"/></svg>
+      </div>
+      <div class="days-date">始于 {site.startDate.replaceAll('-', '.')}</div>
+    </div>
+    {upcoming && (
+      <p class="upcoming">📅 距离「{upcoming.title}」纪念日还有
+        <span class="flip-clock" data-value={upcoming.left} aria-label={`${upcoming.left} 天`}></span> 天
+      </p>
+    )}
+  </section>
+
+  <Scene scene={season} />
+
+  <LoveLetter />
+
+  <h2 class="section-title">最新回忆 <a class="more" href="/timeline/">进入展馆 →</a></h2>
+  <div class="memory-grid">
+    {latest.map((item, i) => (
+      <a href="/timeline/" class={`polaroid tape ${item.data.tilt}`} style={`animation-delay:${i * 0.12}s`}>
+        {item.data.image
+          ? <img src={item.data.image} alt={item.data.alt} loading="lazy" />
+          : <div class="no-photo">{item.data.scene === 'seaside' ? '🌊' : item.data.scene === 'mountain' ? '⛰️' : item.data.scene === 'city' ? '🌃' : '🌸'}</div>}
+        <figcaption>{item.data.date} · {item.data.title}</figcaption>
+      </a>
+    ))}
+  </div>
+</Base>
+
+<style>
+.hero { text-align: center; padding: 48px 0 8px; }
+.hero-sub { color: var(--ink-soft); font-size: 17px; }
+.hero-title { font-size: clamp(34px, 6vw, 52px); margin: 10px 0 30px; }
+.days-card {
+  display: inline-block; padding: 28px 56px;
+  background: #fffdf8; border: 2px solid #ece2d0; border-radius: 20px;
+  box-shadow: 3px 5px 0 rgba(61,58,52,.07);
+  transform: rotate(-.6deg);
+}
+.days-label { color: var(--ink-soft); font-size: 16px; }
+.days-number { font-size: 30px; margin: 6px 0; }
+.days-number span { font-size: 64px; color: var(--accent); font-weight: 700; padding: 0 6px; }
+/* 心跳：数字与爱心同步双跳（模拟真实心跳 lub-dub） */
+.heartbeat-num { display: inline-block; animation: heartbeat 1.6s ease-in-out infinite; transform-origin: center; }
+.heartbeat-icon { display: inline-block; vertical-align: middle; margin-left: 10px; animation: heartbeat 1.6s ease-in-out infinite; transform-origin: center; }
+@keyframes heartbeat {
+  0%, 100% { transform: scale(1); }
+  12% { transform: scale(1.12); }
+  24% { transform: scale(1); }
+  36% { transform: scale(1.08); }
+  52% { transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) { .heartbeat-num, .heartbeat-icon { animation: none; } }
+.days-date { color: var(--ink-soft); font-size: 14px; }
+.upcoming { margin-top: 22px; font-size: 17px; }
+.upcoming strong { color: var(--accent); font-size: 22px; }
+/* 翻牌数字 */
+.flip-clock { display: inline-flex; gap: 4px; vertical-align: middle; margin: 0 4px; }
+.flip-digit {
+  position: relative; width: 34px; height: 46px;
+  background: #fffdf8; border: 1.5px solid #e0d5c2; border-radius: 6px;
+  font-size: 30px; font-weight: 700; color: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 3px 0 rgba(61,58,52,.08);
+  transform-style: preserve-3d;
+}
+.flip-digit::after { /* 翻牌中缝线 */
+  content: ''; position: absolute; left: 0; right: 0; top: 50%;
+  border-top: 1.5px solid #e8dcc4;
+}
+.flip-digit.flipping { animation: flipIn .32s ease; }
+@keyframes flipIn {
+  0% { transform: rotateX(-88deg); opacity: .3; }
+  100% { transform: rotateX(0); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) { .flip-digit.flipping { animation: none; } }
+.section-title { margin: 44px 0 26px; font-size: 26px; display: flex; align-items: baseline; justify-content: space-between; }
+.section-title .more { font-size: 15px; color: var(--accent); }
+.memory-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 34px; padding: 14px 6px; }
+.no-photo { aspect-ratio: 4/3; display: flex; align-items: center; justify-content: center; font-size: 64px; background: var(--paper-dark); border-radius: 2px; }
+</style>
+
+<script>
+  // 纪念日翻牌：数字快速翻动后逐位定格
+  document.querySelectorAll<HTMLElement>('.flip-clock').forEach(clock => {
+    const target = clock.dataset.value || '0';
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const digits = target.split('').map(() => {
+      const d = document.createElement('span');
+      d.className = 'flip-digit';
+      d.textContent = '0';
+      clock.appendChild(d);
+      return d;
+    });
+    if (reduced) { digits.forEach((d, i) => d.textContent = target[i]); return; }
+    let step = 0;
+    const totalSteps = 14;
+    const timer = setInterval(() => {
+      step++;
+      digits.forEach((d, i) => {
+        const settleAt = totalSteps - (digits.length - 1 - i) * 3; // 高位先停，个位最后停
+        if (step >= settleAt) {
+          if (d.textContent !== target[i]) {
+            d.textContent = target[i];
+            d.classList.remove('flipping');
+            void d.offsetWidth;
+            d.classList.add('flipping');
+          }
+        } else {
+          d.textContent = String(Math.floor(Math.random() * 10));
+          d.classList.remove('flipping');
+          void d.offsetWidth;
+          d.classList.add('flipping');
+        }
+      });
+      if (step >= totalSteps) clearInterval(timer);
+    }, 90);
+  });
+</script>
