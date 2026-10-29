@@ -1,0 +1,82 @@
+---
+import Base from '../layouts/Base.astro';
+import { getCollection } from 'astro:content';
+import { readFileSync } from 'node:fs';
+import { parse } from 'yaml';
+
+const places = parse(readFileSync('src/content/places.yaml', 'utf-8')) as { name: string }[];
+const memories = await getCollection('timeline');
+const year = new Date().getFullYear();
+const staticData = memories.map(m => ({
+  title: m.data.title, sortDate: m.data.sortDate,
+  images: m.data.image ? [m.data.image] : [],
+}));
+---
+<Base title="年度手账" active="/year/">
+  <h1 class="hand-title">我们的 {year}</h1>
+  <p class="hand-sub">一年到头，值得数一数</p>
+
+  <div class="year-stats" id="year-stats"></div>
+
+  <h2 class="year-photo-title">这一年的照片</h2>
+  <div class="year-photos" id="year-photos"></div>
+  <p class="year-empty" id="year-empty" hidden>今年还没有照片，去时间轴补上第一张吧</p>
+</Base>
+
+<script is:inline define:vars={{ staticData, placeCount: places.length, year }}>
+  window.__YEAR_STATIC = staticData;
+  window.__YEAR_PLACES = placeCount;
+  window.__YEAR = year;
+</script>
+
+<script>
+  import { fetchOnlineMemories, imagesOf, esc } from '../scripts/memories-shared';
+
+  (async () => {
+    const year = (window as any).__YEAR;
+    const staticData = (window as any).__YEAR_STATIC || [];
+    const online = await fetchOnlineMemories().catch(() => []);
+    const onlineData = online.map(m => ({
+      title: m.title, sortDate: m.sortDate, images: imagesOf(m),
+    }));
+    const all = [...staticData, ...onlineData].filter(m => m.sortDate.startsWith(String(year)));
+
+    let diaryCount = 0;
+    try {
+      const res = await fetch('/api/stats');
+      if (res.ok) diaryCount = (await res.json()).diaryCount;
+    } catch { /* 无后端时显示 0 */ }
+
+    const photoCount = all.reduce((n, m) => n + m.images.length, 0);
+    const stats = [
+      { num: all.length, label: '条回忆' },
+      { num: photoCount, label: '张照片' },
+      { num: diaryCount, label: '篇日记留言' },
+      { num: (window as any).__YEAR_PLACES, label: '个到过的城市' },
+    ];
+    document.getElementById('year-stats')!.innerHTML = stats.map(s => `
+      <div class="stat-card card">
+        <div class="stat-num">${s.num}</div>
+        <div class="stat-label">${s.label}</div>
+      </div>`).join('');
+
+    const photos = all.flatMap(m => m.images.map(url => ({ url, title: m.title, date: m.sortDate })))
+      .slice(0, 12);
+    document.getElementById('year-photos')!.innerHTML = photos.map((p, i) => `
+      <figure class="polaroid tape ${i % 2 ? 'tilt-r' : 'tilt-l'}">
+        <img src="${esc(p.url)}" alt="${esc(p.title)}" loading="lazy" />
+        <figcaption>${esc(p.date)} · ${esc(p.title)}</figcaption>
+      </figure>`).join('');
+    (document.getElementById('year-empty') as HTMLElement).hidden = photos.length > 0;
+  })();
+</script>
+
+<style is:global>
+.year-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 22px; margin-bottom: 50px; }
+.stat-card { text-align: center; padding: 30px 16px; }
+.stat-num { font-size: 52px; color: var(--accent); font-weight: 700; }
+.stat-label { color: var(--ink-soft); margin-top: 6px; }
+.year-photo-title { font-size: 24px; margin-bottom: 24px; text-align: center; }
+.year-photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 28px; }
+.year-empty { text-align: center; color: var(--ink-soft); }
+</style>

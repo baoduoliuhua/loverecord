@@ -50,6 +50,19 @@ const places = parse(readFileSync('src/content/places.yaml', 'utf-8')) as { name
         properties: { title: p.name },
       })),
     });
+    // 按记录顺序把城市连成手绘虚线航线
+    if (places.length > 1) {
+      new TMap.MultiPolyline({
+        map,
+        styles: {
+          route: new TMap.PolylineStyle({ color: '#d47b5c', width: 2, dashArray: [8, 8], lineCap: 'round' }),
+        },
+        geometries: [{
+          id: 'route', styleId: 'route',
+          paths: places.map(p => new TMap.LatLng(p.lat, p.lng)),
+        }],
+      });
+    }
     new TMap.MultiLabel({
       map,
       styles: { name: new TMap.LabelStyle({ color: '#3d3a34', size: 14, offset: { x: 0, y: 12 }, strokeColor: '#ffffff', strokeWidth: 3 }) },

@@ -52,16 +52,37 @@ const doneCount = wishes.filter(w => w.done).length;
     const idx = Number(li.dataset.index);
     const check = li.querySelector<HTMLInputElement>('.wish-check')!;
     const box = li.querySelector<HTMLElement>('.wish-box')!;
+    const wishTitle = li.querySelector('.wish-title')?.textContent || '';
     const apply = (on: boolean) => {
       li.classList.toggle('done', on);
       box.textContent = on ? '✓' : '';
     };
     if (saved.includes(idx)) { check.checked = true; apply(true); }
-    check.addEventListener('change', () => {
+    check.addEventListener('change', async () => {
       apply(check.checked);
       const set = new Set<number>(JSON.parse(localStorage.getItem(KEY) || '[]'));
       check.checked ? set.add(idx) : set.delete(idx);
       localStorage.setItem(KEY, JSON.stringify([...set]));
+
+      // 愿望达成：撒花；已登录时自动在时间轴生成一条回忆
+      if (check.checked) {
+        const { confetti } = await import('../scripts/confetti');
+        confetti(60);
+        const { isLoggedIn } = await import('../scripts/memory-admin');
+        if (isLoggedIn()) {
+          try {
+            const { saveMemory } = await import('../scripts/memories-shared');
+            const today = new Date().toISOString().slice(0, 10);
+            await saveMemory({
+              title: `🎉 愿望达成：${wishTitle}`,
+              sortDate: today,
+              date: today.replaceAll('-', '.'),
+              scene: 'fireworks',
+              content: '又一起完成了一件想做的事。',
+            }, false);
+          } catch { /* 创建失败不影响勾选 */ }
+        }
+      }
     });
   });
 </script>

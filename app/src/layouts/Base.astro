@@ -5,6 +5,12 @@ import { site } from '../config';
 interface Props { title?: string; active?: string; }
 const { title = '我们的恋爱手账', active = '' } = Astro.props;
 const path = Astro.url.pathname;
+
+// 今天是否是纪念日（月日相同）
+const now = new Date();
+const md = `${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+const todayAnniversary = site.anniversary.find(a => a.date.slice(5) === md);
+const anniversaryYears = todayAnniversary ? now.getFullYear() - Number(todayAnniversary.date.slice(0, 4)) : 0;
 const links = [
   { href: '/', label: '首页' },
   { href: '/timeline/', label: '时间轴' },
@@ -12,6 +18,7 @@ const links = [
   { href: '/diary/', label: '日记留言' },
   { href: '/wishes/', label: '愿望清单' },
   { href: '/map/', label: '足迹地图' },
+  { href: '/year/', label: '年度手账' },
 ];
 ---
 <!DOCTYPE html>
@@ -25,6 +32,29 @@ const links = [
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css" />
 </head>
 <body>
+  {path === '/' && (
+    <div class="book-cover" id="book-cover" hidden>
+      <div class="book" id="book">
+        <div class="book-spine"></div>
+        <div class="book-front">
+          <div class="book-deco">❦</div>
+          <div class="book-title">恋爱手账</div>
+          <div class="book-names">{site.coupleName}</div>
+          <div class="book-date">始于 {site.startDate.replaceAll('-', '.')}</div>
+          <div class="book-open-hint">轻点封面，翻开我们</div>
+        </div>
+      </div>
+    </div>
+  )}
+
+  {todayAnniversary && (
+    <div class="anniversary-banner" id="anniversary-banner">
+      🎉 今天是「{todayAnniversary.title}」{anniversaryYears > 0 ? `${anniversaryYears} 周年` : '纪念日'}，快乐！
+      <button class="anniversary-close" aria-label="关闭" onclick="this.parentElement.remove()">×</button>
+    </div>
+  )}
+
+  <div class="night-lamp" aria-hidden="true"></div>
   <nav class="nav">
     <div class="container nav-inner">
       <a class="nav-brand" href="/">📖 恋爱手账</a>
@@ -53,7 +83,35 @@ const links = [
 
   <script>
     import '../scripts/cursor-magic';
+    import { confetti } from '../scripts/confetti';
+
+    // 开屏翻书：每个会话只出现一次
+    const cover = document.getElementById('book-cover');
+    if (cover) {
+      if (!sessionStorage.getItem('loverecord-book-opened')) {
+        cover.hidden = false;
+        document.body.style.overflow = 'hidden';
+        document.getElementById('book')!.addEventListener('click', () => {
+          cover.classList.add('opening');
+          sessionStorage.setItem('loverecord-book-opened', '1');
+          document.body.style.overflow = '';
+          setTimeout(() => cover.remove(), 900);
+        }, { once: true });
+      } else {
+        cover.remove();
+      }
+    }
+
+    // 纪念日彩带
+    if (document.getElementById('anniversary-banner')) {
+      setTimeout(() => confetti(100), 600);
+    }
+
+    // 日夜灯光：18:00 - 次日 6:00 进入暖灯模式
+    const hour = new Date().getHours();
+    if (hour >= 18 || hour < 6) document.body.classList.add('night');
   </script>
+</body>
   <script>
     const audio = document.getElementById('bg-music') as HTMLAudioElement | null;
     const btn = document.getElementById('music-btn');

@@ -32,6 +32,7 @@ const season = m >= 3 && m <= 5 ? 'spring' : m >= 6 && m <= 8 ? 'summer' : m >= 
   <section class="hero reveal">
     <p class="hero-sub">这里陈列着我们最重要的东西</p>
     <h1 class="hero-title">{site.coupleName}</h1>
+    <p class="daily-quote" id="daily-quote"></p>
     <div class="days-card">
       <div class="days-label">今天是我们在一起的</div>
       <div class="days-number">第 <span class="heartbeat-num">{days}</span> 天
@@ -44,6 +45,13 @@ const season = m >= 3 && m <= 5 ? 'spring' : m >= 6 && m <= 8 ? 'summer' : m >= 
         <span class="flip-clock" data-value={upcoming.left} aria-label={`${upcoming.left} 天`}></span> 天
       </p>
     )}
+    <div class="miss-wrap">
+      <button class="miss-btn" id="miss-btn" aria-label="想你了">
+        <svg viewBox="0 0 32 30" width="26" height="24"><path d="M16 28 C8 20 1 14 1 8 A7.5 7.5 0 0 1 16 5 A7.5 7.5 0 0 1 31 8 C31 14 24 20 16 28Z" fill="currentColor"/></svg>
+        想你了
+      </button>
+      <span class="miss-count" id="miss-count"></span>
+    </div>
   </section>
 
   <Scene scene={season} />
@@ -131,8 +139,38 @@ const season = m >= 3 && m <= 5 ? 'spring' : m >= 6 && m <= 8 ? 'summer' : m >= 
 .no-photo { aspect-ratio: 4/3; display: flex; align-items: center; justify-content: center; font-size: 64px; background: var(--paper-dark); border-radius: 2px; }
 </style>
 
-<script is:inline define:vars={{ allMemories }}>
+<script is:inline define:vars={{ allMemories, quotes: site.quotes }}>
   window.__ALL_MEMORIES = allMemories;
+  window.__QUOTES = quotes;
+</script>
+
+<script>
+  // 每日一句：按日期轮换
+  const quotes = (window as any).__QUOTES || [];
+  if (quotes.length) {
+    const dayIndex = Math.floor(Date.now() / 86400000) % quotes.length;
+    document.getElementById('daily-quote')!.textContent = '「 ' + quotes[dayIndex] + ' 」';
+  }
+
+  // 想你了按钮
+  const missBtn = document.getElementById('miss-btn')!;
+  const missCount = document.getElementById('miss-count')!;
+  const showMiss = (n: number) => { missCount.textContent = n > 0 ? `今天已被想念 ${n} 次` : '今天还没人按过'; };
+  fetch('/api/miss').then(r => r.ok ? r.json() : { count: 0 }).then(d => showMiss(d.count)).catch(() => { missCount.textContent = ''; });
+  missBtn.addEventListener('click', async () => {
+    missBtn.classList.remove('miss-pop');
+    void (missBtn as HTMLElement).offsetWidth;
+    missBtn.classList.add('miss-pop');
+    try {
+      const res = await fetch('/api/miss', { method: 'POST' });
+      const d = await res.json();
+      showMiss(d.count);
+      if (d.count === 3 || d.count === 10) {
+        const { confetti } = await import('../scripts/confetti');
+        confetti(40);
+      }
+    } catch { /* 本地静态预览无后端时静默 */ }
+  });
 </script>
 
 <script>

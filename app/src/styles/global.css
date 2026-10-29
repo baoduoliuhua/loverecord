@@ -277,3 +277,75 @@ label { font-size: 15px; color: var(--ink-soft); display: block; margin-bottom: 
   width: 22px; height: 22px; border-radius: 50%; border: none;
   background: #c0615a; color: #fff; cursor: pointer; font-size: 14px; line-height: 1;
 }
+
+/* 每日一句 */
+.daily-quote { color: var(--ink-soft); font-size: 16px; margin: -14px 0 26px; opacity: .85; }
+/* 想你了按钮 */
+.miss-wrap { margin-top: 26px; display: flex; align-items: center; justify-content: center; gap: 16px; }
+.miss-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 26px; border: none; border-radius: 26px;
+  background: #c9647f; color: #fff; font-family: var(--font-hand); font-size: 18px;
+  cursor: pointer; box-shadow: 2px 4px 0 rgba(61,58,52,.15);
+  transition: transform .15s;
+}
+.miss-btn:hover { transform: translateY(-2px) scale(1.03); }
+.miss-btn.miss-pop { animation: missPop .5s ease; }
+@keyframes missPop {
+  0% { transform: scale(1); } 35% { transform: scale(1.18) rotate(-3deg); } 70% { transform: scale(.95); } 100% { transform: scale(1); }
+}
+.miss-count { color: var(--ink-soft); font-size: 14px; }
+
+/* 开屏翻书 */
+.book-cover {
+  position: fixed; inset: 0; z-index: 1000;
+  background: radial-gradient(ellipse at center, #4a3f34 0%, #2c2520 100%);
+  display: flex; align-items: center; justify-content: center;
+  perspective: 1600px;
+}
+.book-cover[hidden] { display: none; }
+.book-cover.opening { animation: coverFade .9s ease forwards; }
+@keyframes coverFade { to { opacity: 0; } }
+.book { position: relative; width: 300px; height: 410px; cursor: pointer; transform-style: preserve-3d; }
+.book-front {
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, #8c6b4f 0%, #6e5340 60%, #5c4433 100%);
+  border-radius: 6px 14px 14px 6px;
+  border: 1px solid #4e3a2c;
+  box-shadow: 0 20px 60px rgba(0,0,0,.5), inset 0 0 60px rgba(0,0,0,.25);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  color: #e8d5b5; text-align: center; padding: 30px;
+  transform-origin: left center;
+  transition: transform .85s cubic-bezier(.4,0,.2,1);
+}
+.book-spine { position: absolute; left: -8px; top: 4px; bottom: 4px; width: 16px; background: #4e3a2c; border-radius: 4px 0 0 4px; }
+.book-cover.opening .book-front { transform: rotateY(-160deg); }
+.book-deco { font-size: 40px; color: #c9a44c; margin-bottom: 20px; }
+.book-title { font-size: 42px; letter-spacing: .2em; color: #e8d5b5; text-shadow: 0 2px 4px rgba(0,0,0,.4); }
+.book-names { margin-top: 22px; font-size: 18px; color: #d9c3a0; }
+.book-date { margin-top: 8px; font-size: 14px; color: #b89f80; }
+.book-open-hint { margin-top: 46px; font-size: 14px; color: #c9b393; animation: hintBlink 2.4s ease-in-out infinite; }
+@keyframes hintBlink { 0%,100% { opacity: .5; } 50% { opacity: 1; } }
+
+/* 纪念日横幅 */
+.anniversary-banner {
+  position: relative; z-index: 60;
+  background: linear-gradient(90deg, #f2ddd2, #f7e8d4, #f2ddd2);
+  color: var(--accent); text-align: center;
+  padding: 10px 40px; font-size: 17px;
+  border-bottom: 2px dashed #e3c9b8;
+}
+.anniversary-close {
+  position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; font-size: 22px; color: var(--accent); cursor: pointer;
+}
+
+/* 日夜暖灯 */
+.night-lamp { display: none; }
+body.night { --paper: #f0e2c9; --paper-dark: #e7d6b8; }
+body.night .night-lamp {
+  display: block; position: fixed; inset: 0; pointer-events: none; z-index: 1;
+  background: radial-gradient(ellipse at 50% -10%, rgba(255,196,110,.14), transparent 60%);
+  mix-blend-mode: multiply;
+}
+body.night main, body.night .nav, body.night .footer { position: relative; z-index: 2; }
