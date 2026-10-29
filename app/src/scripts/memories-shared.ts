@@ -6,9 +6,16 @@ export interface OnlineMemory {
   sortDate: string;
   scene: string;
   image?: string;
+  images?: string[];
   alt?: string;
   content: string;
   createdAt: string;
+}
+
+// 归一化图片数组（兼容旧单图数据）
+export function imagesOf(m: { image?: string; images?: string[] }): string[] {
+  if (m.images && m.images.length) return m.images;
+  return m.image ? [m.image] : [];
 }
 
 const PWD_KEY = 'loverecord-diary-pwd';

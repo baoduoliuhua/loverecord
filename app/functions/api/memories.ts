@@ -7,6 +7,7 @@ interface Memory {
   sortDate: string;
   scene: string;
   image?: string;
+  images?: string[];
   alt?: string;
   content: string;
   createdAt: string;
@@ -32,6 +33,12 @@ function validate(body: any): string | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(body.sortDate || '')) return 'sortDate 需为 YYYY-MM-DD';
   if (!SCENES.includes(body.scene)) return '场景不合法';
   if (body.image && !String(body.image).startsWith('/api/file/') && !String(body.image).startsWith('/assets/')) return '图片路径不合法';
+  if (body.images) {
+    if (!Array.isArray(body.images) || body.images.length > 12) return '图片最多 12 张';
+    for (const u of body.images) {
+      if (!String(u).startsWith('/api/file/') && !String(u).startsWith('/assets/')) return '图片路径不合法';
+    }
+  }
   if (body.content && String(body.content).length > 5000) return '正文不超过5000字';
   return null;
 }
@@ -56,6 +63,7 @@ export const onRequestPost: PagesFunction = async ({ request, env }) => {
     sortDate: body.sortDate,
     scene: body.scene,
     image: body.image || undefined,
+    images: Array.isArray(body.images) && body.images.length ? body.images : undefined,
     alt: String(body.alt || '').slice(0, 100),
     content: String(body.content || '').trim(),
     createdAt: new Date().toISOString(),
@@ -83,6 +91,7 @@ export const onRequestPut: PagesFunction = async ({ request, env }) => {
     sortDate: body.sortDate,
     scene: body.scene,
     image: body.image || undefined,
+    images: Array.isArray(body.images) && body.images.length ? body.images : undefined,
     alt: String(body.alt || '').slice(0, 100),
     content: String(body.content || '').trim(),
   };

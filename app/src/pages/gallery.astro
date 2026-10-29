@@ -27,7 +27,7 @@ const photos = (await getCollection('timeline'))
 </script>
 
 <script>
-  import { fetchOnlineMemories } from '../scripts/memories-shared';
+  import { fetchOnlineMemories, imagesOf } from '../scripts/memories-shared';
   import { isLoggedIn, askPassword, openMemoryForm } from '../scripts/memory-admin';
 
   const galleryEl = document.getElementById('gallery')!;
@@ -38,8 +38,8 @@ const photos = (await getCollection('timeline'))
 
   async function renderAll() {
     const online = await fetchOnlineMemories();
-    const onlinePhotos = online.filter(m => m.image)
-      .map(m => ({ image: m.image!, alt: m.alt || m.title, date: m.date, title: m.title }));
+    const onlinePhotos = online.flatMap(m =>
+      imagesOf(m).map(url => ({ image: url, alt: m.alt || m.title, date: m.date, title: m.title })));
     const all = [...((window as any).__STATIC_PHOTOS || []), ...onlinePhotos]
       .sort((a, b) => b.date.localeCompare(a.date));
 

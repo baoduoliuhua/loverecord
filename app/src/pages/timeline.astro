@@ -43,8 +43,9 @@ const staticMemories = memories.map(m => ({
 
 <script>
   import { sceneHTML, initScenes } from '../scripts/scene-engine';
-  import { fetchOnlineMemories, deleteMemory, esc, type OnlineMemory } from '../scripts/memories-shared';
+  import { fetchOnlineMemories, deleteMemory, esc, imagesOf, type OnlineMemory } from '../scripts/memories-shared';
   import { isLoggedIn, askPassword, openMemoryForm } from '../scripts/memory-admin';
+  import { stackHTML, initStacks } from '../scripts/photo-stack';
 
   type Item = {
     id: string; title: string; date: string; sortDate: string; scene: string;
@@ -68,9 +69,13 @@ const staticMemories = memories.map(m => ({
   function cardHTML(item: Item, index: number): string {
     const side = item.online ? (index % 2 ? 'right' : 'left') : (item.side || 'left');
     const tilt = item.tilt || (index % 2 ? 'tilt-r' : 'tilt-ls');
-    const photo = item.image ? `
+    const imgs = item.online ? imagesOf(item.online) : (item.image ? [item.image] : []);
+    const alt = esc(item.alt || item.title);
+    const photo = imgs.length > 1
+      ? stackHTML(imgs, item.alt || item.title)
+      : imgs.length === 1 ? `
       <figure class="polaroid tape ${tilt}">
-        <img src="${esc(item.image)}" alt="${esc(item.alt || item.title)}" loading="lazy" />
+        <img src="${esc(imgs[0])}" alt="${alt}" loading="lazy" />
       </figure>` : '';
     const adminBtns = item.online && isLoggedIn() ? `
       <div class="tl-admin">
@@ -109,6 +114,7 @@ const staticMemories = memories.map(m => ({
     const visible = allItems.slice(0, shown);
     timelineEl.innerHTML = visible.map(cardHTML).join('');
     initScenes(timelineEl);
+    initStacks(timelineEl);
     bindAdmin(allItems);
 
     // 加载更多按钮

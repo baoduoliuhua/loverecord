@@ -52,12 +52,9 @@ export function openMemoryForm(existing: OnlineMemory | null, hooks: AdminHooks)
           <select name="scene">${SCENE_OPTIONS.map(([v, l]) => `<option value="${v}" ${existing?.scene === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
         </div>
         <div style="margin-top:12px"><label>正文</label><textarea name="content" rows="4" maxlength="5000" placeholder="这一天发生了什么…">${esc(existing?.content || '')}</textarea></div>
-        <div style="margin-top:12px"><label>照片（可选，jpg/png/webp/gif，≤8MB）</label>
-          <input name="photo" type="file" accept="image/jpeg,image/png,image/webp,image/gif" />
-          <div class="admin-photo-preview" ${existing?.image ? '' : 'hidden'}>
-            <img src="${existing?.image || ''}" alt="预览" />
-            <button type="button" class="admin-remove-photo">移除照片</button>
-          </div>
+        <div style="margin-top:12px"><label>照片（可选，最多12张，每张≤8MB）</label>
+          <input name="photo" type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif" />
+          <div class="admin-photo-list"></div>
         </div>
         <div class="admin-form-actions">
           <button type="button" class="btn ghost" id="memory-form-cancel">取消</button>
@@ -68,16 +65,42 @@ export function openMemoryForm(existing: OnlineMemory | null, hooks: AdminHooks)
     </div>`;
   document.body.appendChild(modal);
 
-  let imageUrl = existing?.image || '';
-  const preview = modal.querySelector<HTMLElement>('.admin-photo-preview')!;
-  const previewImg = preview.querySelector('img')!;
-  modal.querySelector('.admin-remove-photo')!.addEventListener('click', () => {
-    imageUrl = ''; preview.hidden = true;
-    (modal.querySelector('input[name=photo]') as HTMLInputElement).value = '';
-  });
-  modal.querySelector('input[name=photo]')!.addEventListener('change', e => {
-    const f = (e.target as HTMLInputElement).files?.[0];
-    if (f) { previewImg.src = URL.createObjectURL(f); preview.hidden = false; }
+  // 多图管理：已上传的 URL 列表 + 待上传的本地文件列表
+  let imageUrls: string[] = existing ? (existing.images?.length ? [...existing.images] : existing.image ? [existing.image] : []) : [];
+  let pendingFiles: File[] = [];
+  const listEl = modal.querySelector<HTMLElement>('.admin-photo-list')!;
+  const fileInput = modal.querySelector<HTMLInputElement>('input[name=photo]')!;
+
+  function renderPhotoList() {
+    listEl.innerHTML = '';
+    imageUrls.forEach((url, i) => {
+      const item = document.createElement('div');
+      item.className = 'admin-photo-item';
+      item.innerHTML = `<img src="${url}" alt="照片${i + 1}" /><button type="button" title="移除">×</button>`;
+      item.querySelector('button')!.addEventListener('click', () => {
+        imageUrls.splice(i, 1); renderPhotoList();
+      });
+      listEl.appendChild(item);
+    });
+    pendingFiles.forEach((f, i) => {
+      const item = document.createElement('div');
+      item.className = 'admin-photo-item pending';
+      item.innerHTML = `<img src="${URL.createObjectURL(f)}" alt="待上传${i + 1}" /><button type="button" title="移除">×</button>`;
+      item.querySelector('button')!.addEventListener('click', () => {
+        pendingFiles.splice(i, 1); renderPhotoList();
+      });
+      listEl.appendChild(item);
+    });
+  }
+  renderPhotoList();
+
+  fileInput.addEventListener('change', () => {
+    const files = Array.from(fileInput.files || []);
+    const room = 12 - imageUrls.length - pendingFiles.length;
+    if (files.length > room) alert(`最多 12 张，当前还能再加 ${Math.max(room, 0)} 张`);
+    pendingFiles.push(...files.slice(0, Math.max(room, 0)));
+    fileInput.value = '';
+    renderPhotoList();
   });
   const close = () => modal.remove();
   modal.querySelector('#memory-form-cancel')!.addEventListener('click', close);
@@ -90,8 +113,11 @@ export function openMemoryForm(existing: OnlineMemory | null, hooks: AdminHooks)
     const errEl = modal.querySelector<HTMLElement>('.admin-form-error')!;
     btn.disabled = true; btn.textContent = '保存中…'; errEl.hidden = true;
     try {
-      const file = (form.elements.namedItem('photo') as HTMLInputElement).files?.[0];
-      if (file) imageUrl = await uploadPhoto(file);
+      // 逐个上传新选照片
+      for (const f of pendingFiles) {
+        const url = await uploadPhoto(f);
+        imageUrls.push(url);
+      }
       const sortDate = (form.elements.namedItem('sortDate') as HTMLInputElement).value;
       await saveMemory({
         id: existing?.id,
@@ -100,7 +126,8 @@ export function openMemoryForm(existing: OnlineMemory | null, hooks: AdminHooks)
         date: sortDate.replaceAll('-', '.'),
         scene: (form.elements.namedItem('scene') as HTMLSelectElement).value,
         content: (form.elements.namedItem('content') as HTMLTextAreaElement).value,
-        image: imageUrl || undefined,
+        image: imageUrls[0] || undefined,
+        images: imageUrls.length ? imageUrls : undefined,
         alt: (form.elements.namedItem('title') as HTMLInputElement).value,
       }, !!existing);
       close();
