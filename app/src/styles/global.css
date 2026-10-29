@@ -563,3 +563,18 @@ body.night main, body.night .nav, body.night .footer { position: relative; z-ind
   .nav-ink { display: none; }
   .nav-links a::before { display: none; }
 }
+
+/* 导航字符小跳 */
+.nav-char { display: inline-block; transition: transform .3s cubic-bezier(.2,1.4,.4,1); }
+.nav-links a:hover .nav-char { transform: translateY(-4px); }
+/* 翻页转场 */
+body.page-enter { animation: pageIn .45s ease; }
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+body.page-leave { animation: pageOut .24s ease forwards; }
+@keyframes pageOut {
+  from { opacity: 1; transform: translateY(0) rotateX(0deg); }
+  to { opacity: 0; transform: translateY(-12px) rotateX(2deg); }
+}
