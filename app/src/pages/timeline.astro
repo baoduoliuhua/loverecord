@@ -1,66 +1,183 @@
 ---
 import Base from '../layouts/Base.astro';
-import Scene from '../components/Scene.astro';
-import { getCollection, render } from 'astro:content';
+import { getCollection } from 'astro:content';
 
-const memories = (await getCollection('timeline'))
-  .sort((a, b) => a.data.sortDate.localeCompare(b.data.sortDate));
+const memories = await getCollection('timeline');
+const staticMemories = memories.map(m => ({
+  id: 'static-' + m.id,
+  title: m.data.title,
+  date: m.data.date,
+  sortDate: m.data.sortDate,
+  scene: m.data.scene,
+  image: m.data.image || '',
+  alt: m.data.alt || '',
+  side: m.data.side,
+  tilt: m.data.tilt,
+  body: (m.body || '').trim(),
+}));
 ---
 <Base title="时间轴" active="/timeline/">
-  <h1 class="hand-title">回忆展馆</h1>
-  <p class="hand-sub">从相识那天起，每一件都值得陈列</p>
+  <h1 class="hand-title">回忆手账</h1>
+  <p class="hand-sub">从相识那天起，每一件都值得记下</p>
 
-  <div class="timeline">
-    {memories.map(async (item, i) => {
-      const { Content } = await render(item);
-      return (
-        <article class={`tl-item ${item.data.side}`}>
-          <div class="tl-dot"></div>
-          <div class="tl-card card reveal">
-            <div class="tl-date">{item.data.date}</div>
-            <h2 class="tl-title">{item.data.title}</h2>
-            {item.data.image && (
-              <figure class={`polaroid tape ${item.data.tilt}`}>
-                <img src={item.data.image} alt={item.data.alt} loading="lazy" />
-              </figure>
-            )}
-            <Scene scene={item.data.scene} />
-            <div class="tl-content"><Content /></div>
-          </div>
-        </article>
-      );
-    })}
+  <div class="admin-bar">
+    <button class="btn ghost" id="admin-toggle">🔐 管理</button>
+    <button class="btn" id="admin-add" hidden>＋ 添加回忆</button>
+  </div>
+
+  <div class="year-nav" id="year-nav" hidden></div>
+
+  <div class="timeline" id="timeline"></div>
+  <div class="load-more-wrap">
+    <button class="btn ghost" id="load-more" hidden></button>
   </div>
   <p class="tl-end">—— 未完待续 ——</p>
 </Base>
 
+<script is:inline define:vars={{ staticMemories }}>
+  window.__STATIC_MEMORIES = staticMemories;
+</script>
+
 <script is:inline src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
 <script is:inline src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
-<script is:inline>
-  // 滚动叙事：卡片从各自一侧 3D 翻转入场，照片轻微视差
-  window.addEventListener('load', () => {
-    if (typeof gsap === 'undefined') return;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    gsap.registerPlugin(ScrollTrigger);
 
-    document.querySelectorAll('.tl-item').forEach(item => {
+<script>
+  import { sceneHTML, initScenes } from '../scripts/scene-engine';
+  import { fetchOnlineMemories, deleteMemory, esc, type OnlineMemory } from '../scripts/memories-shared';
+  import { isLoggedIn, askPassword, openMemoryForm } from '../scripts/memory-admin';
+
+  type Item = {
+    id: string; title: string; date: string; sortDate: string; scene: string;
+    image?: string; alt?: string; body: string; side?: string; tilt?: string; online?: OnlineMemory;
+  };
+
+  const timelineEl = document.getElementById('timeline')!;
+  const adminToggle = document.getElementById('admin-toggle') as HTMLButtonElement;
+  const adminAdd = document.getElementById('admin-add') as HTMLButtonElement;
+
+  const escBody = (s: string) => esc(s).replace(/\n/g, '<br>');
+
+  function staticItems(): Item[] {
+    return ((window as any).__STATIC_MEMORIES || []).map((m: any) => ({ ...m }));
+  }
+
+  function onlineItems(list: OnlineMemory[]): Item[] {
+    return list.map(m => ({ ...m, body: m.content, online: m }));
+  }
+
+  function cardHTML(item: Item, index: number): string {
+    const side = item.online ? (index % 2 ? 'right' : 'left') : (item.side || 'left');
+    const tilt = item.tilt || (index % 2 ? 'tilt-r' : 'tilt-ls');
+    const photo = item.image ? `
+      <figure class="polaroid tape ${tilt}">
+        <img src="${esc(item.image)}" alt="${esc(item.alt || item.title)}" loading="lazy" />
+      </figure>` : '';
+    const adminBtns = item.online && isLoggedIn() ? `
+      <div class="tl-admin">
+        <button data-action="edit" data-id="${item.id}">编辑</button>
+        <button data-action="delete" data-id="${item.id}">删除</button>
+      </div>` : '';
+    return `
+    <article class="tl-item ${side}" data-id="${item.id}">
+      <div class="tl-dot"></div>
+      <div class="tl-card card">
+        <div class="tl-date">${esc(item.date)}${item.online ? ' <span class="tl-badge">在线</span>' : ''}</div>
+        <h2 class="tl-title">${esc(item.title)}</h2>
+        ${photo}
+        ${sceneHTML(item.scene)}
+        <div class="tl-content">${item.online ? escBody(item.body) : escBody(item.body)}</div>
+        ${adminBtns}
+      </div>
+    </article>`;
+  }
+
+  const PAGE_SIZE = 5;
+  let allItems: Item[] = [];
+  let shown = PAGE_SIZE;
+
+  const loadMoreBtn = document.getElementById('load-more') as HTMLButtonElement;
+  const yearNav = document.getElementById('year-nav')!;
+
+  async function renderAll() {
+    const online = await fetchOnlineMemories();
+    allItems = [...staticItems(), ...onlineItems(online)]
+      .sort((a, b) => a.sortDate.localeCompare(b.sortDate));
+    renderVisible();
+  }
+
+  function renderVisible() {
+    const visible = allItems.slice(0, shown);
+    timelineEl.innerHTML = visible.map(cardHTML).join('');
+    initScenes(timelineEl);
+    bindAdmin(allItems);
+
+    // 加载更多按钮
+    const remain = allItems.length - shown;
+    loadMoreBtn.hidden = remain <= 0;
+    if (remain > 0) loadMoreBtn.textContent = `加载更多回忆（还有 ${remain} 条）`;
+
+    // 年份锚点
+    const years = [...new Set(allItems.map(i => i.sortDate.slice(0, 4)))];
+    yearNav.hidden = years.length < 2;
+    const activeYear = yearNav.querySelector('.year-chip.active')?.getAttribute('data-year')
+      || years[years.length - 1];
+    yearNav.innerHTML = years.map(y =>
+      `<button class="year-chip ${y === activeYear ? 'active' : ''}" data-year="${y}">${y}</button>`
+    ).join('');
+    yearNav.querySelectorAll<HTMLButtonElement>('.year-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        yearNav.querySelectorAll('.year-chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        const y = chip.dataset.year!;
+        const idx = allItems.findIndex(i => i.sortDate.startsWith(y));
+        if (idx < 0) return;
+        if (idx + 1 > shown) { shown = idx + 1; renderVisible(); }
+        timelineEl.querySelectorAll('.tl-item')[idx]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    });
+
+    animate();
+  }
+
+  loadMoreBtn.addEventListener('click', () => {
+    shown += PAGE_SIZE;
+    renderVisible();
+  });
+
+  function bindAdmin(items: Item[]) {
+    timelineEl.querySelectorAll<HTMLButtonElement>('.tl-admin button').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id!;
+        const item = items.find(i => i.id === id);
+        if (!item?.online) return;
+        if (btn.dataset.action === 'edit') {
+          openMemoryForm(item.online, { onChanged: renderAll });
+        } else {
+          if (!confirm(`确定删除「${item.title}」吗？`)) return;
+          try { await deleteMemory(id); renderAll(); }
+          catch { alert('删除失败'); }
+        }
+      });
+    });
+  }
+
+  function animate() {
+    if (typeof (window as any).gsap === 'undefined') return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const gsap = (window as any).gsap;
+    // 重新渲染前清理旧的滚动触发器，避免重复绑定
+    (window as any).ScrollTrigger?.getAll().forEach((t: any) => t.kill());
+    gsap.registerPlugin((window as any).ScrollTrigger);
+    timelineEl.querySelectorAll('.tl-item').forEach((item: any) => {
       const card = item.querySelector('.tl-card');
       const fromLeft = item.classList.contains('left');
       gsap.set(card, { transformPerspective: 900 });
       gsap.fromTo(card,
+        { opacity: 0, x: fromLeft ? -90 : 90, rotationY: fromLeft ? 24 : -24, rotationX: 6 },
         {
-          opacity: 0,
-          x: fromLeft ? -90 : 90,
-          rotationY: fromLeft ? 24 : -24,
-          rotationX: 6,
-        },
-        {
-          opacity: 1, x: 0, rotationY: 0, rotationX: 0,
-          duration: 1.1, ease: 'power3.out',
+          opacity: 1, x: 0, rotationY: 0, rotationX: 0, duration: 1.1, ease: 'power3.out',
           scrollTrigger: { trigger: item, start: 'top 82%', toggleActions: 'play none none reverse' },
-        }
-      );
-
+        });
       const photo = item.querySelector('.polaroid');
       if (photo) {
         gsap.fromTo(photo, { y: 26 }, {
@@ -69,10 +186,23 @@ const memories = (await getCollection('timeline'))
         });
       }
     });
+  }
+
+  adminToggle.addEventListener('click', () => {
+    if (isLoggedIn()) {
+      adminAdd.hidden = !adminAdd.hidden;
+      renderAll();
+    } else {
+      askPassword(() => { adminAdd.hidden = false; renderAll(); });
+    }
   });
+  adminAdd.addEventListener('click', () => openMemoryForm(null, { onChanged: renderAll }));
+
+  if (isLoggedIn()) adminAdd.hidden = false;
+  renderAll();
 </script>
 
-<style>
+<style is:global>
 .timeline { position: relative; max-width: 860px; margin: 0 auto; padding: 20px 0 40px; }
 .timeline::before {
   content: ''; position: absolute; left: 50%; top: 0; bottom: 0;
@@ -91,12 +221,64 @@ const memories = (await getCollection('timeline'))
 .tl-card { display: inline-block; text-align: left; width: 100%; }
 .tl-date { color: var(--accent); font-size: 15px; letter-spacing: .1em; }
 .tl-title { font-size: 24px; margin: 4px 0 14px; }
-.tl-content { color: var(--ink-soft); font-size: 16px; }
+.tl-content { color: var(--ink-soft); font-size: 16px; white-space: normal; }
 .tl-end { text-align: center; color: var(--ink-soft); padding-bottom: 40px; }
+.tl-badge { font-size: 11px; background: var(--accent-soft); padding: 1px 8px; border-radius: 8px; }
+.tl-admin { margin-top: 12px; display: flex; gap: 14px; }
+.tl-admin button {
+  background: none; border: none; color: var(--blue); cursor: pointer;
+  font-family: var(--font-body); font-size: 14px; text-decoration: underline;
+}
+.tl-admin button[data-action="delete"] { color: #c0615a; }
+
+.admin-bar { display: flex; justify-content: center; gap: 14px; margin-bottom: 26px; }
+.load-more-wrap { text-align: center; padding: 10px 0 24px; }
+/* 年份索引：无边框章节标记，高级感来自留白与字重对比 */
+.year-nav {
+  display: flex; justify-content: center; align-items: baseline; flex-wrap: wrap;
+  gap: 6px; margin: 6px 0 34px;
+}
+.year-nav[hidden] { display: none; }
+.year-chip {
+  position: relative;
+  padding: 6px 18px 12px;
+  background: none; border: none; cursor: pointer;
+  font-family: var(--font-hand); font-size: 21px; font-weight: 400;
+  letter-spacing: .14em; color: #b6ab99;
+  transition: color .25s, font-size .25s;
+}
+/* 年份之间的细点分隔 */
+.year-chip:not(:last-child)::after {
+  content: '·'; position: absolute; right: -4px; top: 8px;
+  color: #d8cbb6; font-size: 18px; pointer-events: none;
+}
+.year-chip:hover { color: var(--ink); }
+.year-chip.active {
+  color: var(--accent); font-size: 26px; font-weight: 700;
+}
+/* 选中时的手绘下划线 */
+.year-chip.active::before {
+  content: ''; position: absolute; left: 14px; right: 14px; bottom: 2px; height: 7px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 12' preserveAspectRatio='none'%3E%3Cpath d='M2 8 Q 30 2 55 7 T 98 5' stroke='%23d47b5c' stroke-width='2.5' fill='none' stroke-linecap='round' opacity='.55'/%3E%3C/svg%3E") no-repeat center/100% 100%;
+}
+.admin-modal {
+  position: fixed; inset: 0; z-index: 200; overflow-y: auto;
+  background: rgba(30,26,20,.5); display: flex; align-items: flex-start; justify-content: center;
+  padding: 40px 16px;
+}
+.admin-modal-card { width: 100%; max-width: 560px; }
+.admin-row { display: flex; gap: 14px; }
+.admin-photo-preview { margin-top: 10px; display: flex; align-items: center; gap: 14px; }
+.admin-photo-preview[hidden] { display: none; }
+.admin-photo-preview img { width: 110px; border-radius: 6px; }
+.admin-remove-photo { background: none; border: none; color: #c0615a; cursor: pointer; font-size: 14px; }
+.admin-form-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px; }
+.admin-form-error { color: #c0615a; margin-top: 12px; }
 
 @media (max-width: 720px) {
   .timeline::before { left: 12px; }
   .tl-item, .tl-item.left, .tl-item.right { width: 100%; left: 0; text-align: left; padding: 0 0 40px 40px; }
   .tl-item.left .tl-dot, .tl-item.right .tl-dot { left: 5px; right: auto; }
+  .admin-row { flex-direction: column; }
 }
 </style>

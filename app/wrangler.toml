@@ -6,3 +6,8 @@ pages_build_output_dir = "dist"
 # [[kv_namespaces]]
 # binding = "DIARY"
 # id = "你的KV命名空间ID"
+
+# 照片存储：本地开发直接用本地模拟桶；生产部署时改成真实桶名
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "loverecord-photos"

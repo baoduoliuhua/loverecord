@@ -3,7 +3,7 @@ import '../styles/global.css';
 import { site } from '../config';
 
 interface Props { title?: string; active?: string; }
-const { title = '我们的恋爱博物馆', active = '' } = Astro.props;
+const { title = '我们的恋爱手账', active = '' } = Astro.props;
 const path = Astro.url.pathname;
 const links = [
   { href: '/', label: '首页' },
@@ -27,7 +27,7 @@ const links = [
 <body>
   <nav class="nav">
     <div class="container nav-inner">
-      <a class="nav-brand" href="/">🏛️ 恋爱博物馆</a>
+      <a class="nav-brand" href="/">📖 恋爱手账</a>
       <button class="nav-toggle" aria-label="菜单" onclick="document.querySelector('.nav-links').classList.toggle('open')">☰</button>
       <div class="nav-links">
         {links.map(l => <a href={l.href} class={path === l.href ? 'active' : ''}>{l.label}</a>)}

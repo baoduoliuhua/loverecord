@@ -4,34 +4,94 @@ import { getCollection } from 'astro:content';
 
 const photos = (await getCollection('timeline'))
   .filter(m => m.data.image)
-  .sort((a, b) => b.data.sortDate.localeCompare(a.data.sortDate));
+  .map(m => ({ image: m.data.image, alt: m.data.alt, date: m.data.date, title: m.data.title }));
 ---
 <Base title="照片墙" active="/gallery/">
   <h1 class="hand-title">照片墙</h1>
   <p class="hand-sub">每一张背后都有一天</p>
 
-  <div class="gallery">
-    {photos.map((p, i) => (
-      <figure class={`polaroid tape develop ${i % 2 ? 'tilt-r' : 'tilt-l'}`} data-full={p.data.image}>
-        <div class="photo-frame">
-          <img src={p.data.image} alt={p.data.alt} loading="lazy" />
-          <div class="develop-veil" aria-hidden="true"></div>
-        </div>
-        <figcaption>{p.data.date} · {p.data.title}</figcaption>
-      </figure>
-    ))}
+  <div class="admin-bar">
+    <button class="btn ghost" id="admin-toggle">🔐 管理</button>
+    <button class="btn" id="admin-add" hidden>＋ 添加照片</button>
   </div>
+
+  <div class="gallery" id="gallery"></div>
 
   <div class="lightbox" id="lightbox" hidden>
     <img id="lightbox-img" alt="放大预览" />
   </div>
-  <noscript><style>.develop .photo-frame img { filter: none; } .develop-veil { display: none; }</style></noscript>
 </Base>
 
-<style>
-.gallery {
-  columns: 3; column-gap: 30px; padding: 10px 4px;
-}
+<script is:inline define:vars={{ photos }}>
+  window.__STATIC_PHOTOS = photos;
+</script>
+
+<script>
+  import { fetchOnlineMemories } from '../scripts/memories-shared';
+  import { isLoggedIn, askPassword, openMemoryForm } from '../scripts/memory-admin';
+
+  const galleryEl = document.getElementById('gallery')!;
+  const box = document.getElementById('lightbox')!;
+  const img = document.getElementById('lightbox-img') as HTMLImageElement;
+  const adminToggle = document.getElementById('admin-toggle') as HTMLButtonElement;
+  const adminAdd = document.getElementById('admin-add') as HTMLButtonElement;
+
+  async function renderAll() {
+    const online = await fetchOnlineMemories();
+    const onlinePhotos = online.filter(m => m.image)
+      .map(m => ({ image: m.image!, alt: m.alt || m.title, date: m.date, title: m.title }));
+    const all = [...((window as any).__STATIC_PHOTOS || []), ...onlinePhotos]
+      .sort((a, b) => b.date.localeCompare(a.date));
+
+    galleryEl.innerHTML = all.map((p, i) => `
+      <figure class="polaroid tape develop ${i % 2 ? 'tilt-r' : 'tilt-l'}" data-full="${p.image}">
+        <div class="photo-frame">
+          <img src="${p.image}" alt="${p.alt}" loading="lazy" />
+          <div class="develop-veil" aria-hidden="true"></div>
+        </div>
+        <figcaption>${p.date} · ${p.title}</figcaption>
+      </figure>`).join('');
+
+    galleryEl.querySelectorAll('figure').forEach(f => {
+      f.addEventListener('click', () => {
+        img.src = (f as HTMLElement).dataset.full || '';
+        box.hidden = false;
+      });
+    });
+    observeDevelop();
+  }
+
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(en => {
+      if (en.isIntersecting) {
+        const el = en.target as HTMLElement;
+        setTimeout(() => el.classList.add('developed'), Math.random() * 400);
+        io.unobserve(el);
+      }
+    });
+  }, { threshold: 0.25 });
+  function observeDevelop() {
+    galleryEl.querySelectorAll('.develop').forEach(el => io.observe(el));
+  }
+
+  box.addEventListener('click', () => { box.hidden = true; });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') box.hidden = true; });
+
+  adminToggle.addEventListener('click', () => {
+    if (isLoggedIn()) {
+      adminAdd.hidden = !adminAdd.hidden;
+    } else {
+      askPassword(() => { adminAdd.hidden = false; });
+    }
+  });
+  adminAdd.addEventListener('click', () => openMemoryForm(null, { onChanged: renderAll }));
+  if (isLoggedIn()) adminAdd.hidden = false;
+
+  renderAll();
+</script>
+
+<style is:global>
+.gallery { columns: 3; column-gap: 30px; padding: 10px 4px; }
 .gallery figure { break-inside: avoid; margin-bottom: 34px; cursor: zoom-in; }
 @media (max-width: 900px) { .gallery { columns: 2; } }
 @media (max-width: 520px) { .gallery { columns: 1; } }
@@ -44,7 +104,6 @@ const photos = (await getCollection('timeline'))
 .lightbox[hidden] { display: none; }
 .lightbox img { max-width: 92vw; max-height: 88vh; border-radius: 6px; box-shadow: 0 10px 50px rgba(0,0,0,.5); }
 
-/* 冲洗显影：米色药液遮罩收缩 + 照片从淡白到显色 */
 .photo-frame { position: relative; overflow: hidden; border-radius: 2px; }
 .photo-frame img { transition: filter 2.2s ease .3s; }
 .develop .photo-frame img { filter: sepia(.5) brightness(1.5) contrast(.35) blur(2px); }
@@ -54,9 +113,7 @@ const photos = (await getCollection('timeline'))
   transform-origin: top;
 }
 .develop.developed .photo-frame img { filter: sepia(0) brightness(1) contrast(1) blur(0); }
-.develop.developed .develop-veil {
-  animation: veilDrain 1.8s cubic-bezier(.4,0,.2,1) forwards;
-}
+.develop.developed .develop-veil { animation: veilDrain 1.8s cubic-bezier(.4,0,.2,1) forwards; }
 @keyframes veilDrain {
   0% { transform: scaleY(1); opacity: 1; }
   70% { opacity: .9; }
@@ -66,28 +123,19 @@ const photos = (await getCollection('timeline'))
   .develop .photo-frame img { filter: none; }
   .develop-veil { display: none; }
 }
-</style>
-<script>
-  const box = document.getElementById('lightbox')!;
-  const img = document.getElementById('lightbox-img') as HTMLImageElement;
-  document.querySelectorAll('.gallery figure').forEach(f => {
-    f.addEventListener('click', () => {
-      img.src = (f as HTMLElement).dataset.full || '';
-      box.hidden = false;
-    });
-  });
-  box.addEventListener('click', () => { box.hidden = true; });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') box.hidden = true; });
 
-  // 显影：进入视野后逐张"冲洗"出来
-  const io = new IntersectionObserver(entries => {
-    entries.forEach(en => {
-      if (en.isIntersecting) {
-        const el = en.target as HTMLElement;
-        setTimeout(() => el.classList.add('developed'), Math.random() * 400);
-        io.unobserve(el);
-      }
-    });
-  }, { threshold: 0.25 });
-  document.querySelectorAll('.develop').forEach(el => io.observe(el));
-</script>
+.admin-bar { display: flex; justify-content: center; gap: 14px; margin-bottom: 26px; }
+.admin-modal {
+  position: fixed; inset: 0; z-index: 200; overflow-y: auto;
+  background: rgba(30,26,20,.5); display: flex; align-items: flex-start; justify-content: center;
+  padding: 40px 16px;
+}
+.admin-modal-card { width: 100%; max-width: 560px; }
+.admin-row { display: flex; gap: 14px; }
+.admin-photo-preview { margin-top: 10px; display: flex; align-items: center; gap: 14px; }
+.admin-photo-preview[hidden] { display: none; }
+.admin-photo-preview img { width: 110px; border-radius: 6px; }
+.admin-remove-photo { background: none; border: none; color: #c0615a; cursor: pointer; font-size: 14px; }
+.admin-form-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px; }
+.admin-form-error { color: #c0615a; margin-top: 12px; }
+</style>
