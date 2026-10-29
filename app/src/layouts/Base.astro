@@ -103,6 +103,9 @@ const links = [
       <button class="nav-toggle" aria-label="菜单" onclick="document.querySelector('.nav-links').classList.toggle('open')">☰</button>
       <div class="nav-links">
         {links.map(l => <a href={l.href} class={path === l.href ? 'active' : ''}>{l.label}</a>)}
+        <span class="nav-ink" id="nav-ink" aria-hidden="true">
+          <svg viewBox="0 0 100 12" preserveAspectRatio="none"><path d="M2 8 Q 30 2 55 7 T 98 5" stroke="#d47b5c" stroke-width="2.5" fill="none" stroke-linecap="round" opacity=".65"/></svg>
+        </span>
       </div>
     </div>
   </nav>
@@ -128,8 +131,10 @@ const links = [
     import { confetti } from '../scripts/confetti';
     import { initDesk } from '../scripts/desk-interactions';
     import { initButtonEffects } from '../scripts/button-effects';
+    import { initNavInk } from '../scripts/nav-ink';
     initDesk();
     initButtonEffects();
+    initNavInk();
 
     // 开屏翻书：每个会话只出现一次
     const cover = document.getElementById('book-cover');
