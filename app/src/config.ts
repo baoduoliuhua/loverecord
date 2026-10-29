@@ -6,6 +6,11 @@ export const site = {
     { title: '第一次见面', date: '2023-12-16' },
   ],
   diaryPassword: '123456', // 日记共享密码，部署前务必改掉
+  // 背景音乐：把 mp3 放到 public/assets/ 下，改这里的路径；留空 '' 则不显示音乐按钮
+  music: {
+    src: '/assets/music.mp3',
+    title: '我们的歌',
+  },
   // 馆长的一封信（首页信封彩蛋：三张便签，悬停/点击展开）
   letter: {
     notes: [

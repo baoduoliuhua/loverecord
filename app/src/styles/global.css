@@ -185,3 +185,47 @@ label { font-size: 15px; color: var(--ink-soft); display: block; margin-bottom: 
   10% { opacity: 1; }
   100% { transform: translate(var(--dx, 40px), 180px) rotate(300deg); opacity: .6; }
 }
+
+/* 雨天 / 烟火 / 星空 */
+.scene-rain, .scene-fireworks { position: relative; }
+.rain-label, .fw-label {
+  position: absolute; top: 10px; left: 14px; color: rgba(255,255,255,.75);
+  font-size: 15px; pointer-events: none;
+}
+.sl-star { animation: slTwinkle 2.8s ease-in-out infinite alternate; }
+.sl-d1 { animation-delay: .7s; } .sl-d2 { animation-delay: 1.4s; } .sl-d3 { animation-delay: 2.1s; }
+@keyframes slTwinkle { from { opacity: .25; } to { opacity: 1; } }
+.sl-meteor { animation: meteor 7s linear infinite; opacity: 0; }
+.sl-meteor2 { animation: meteor 9s linear infinite; animation-delay: 4s; }
+@keyframes meteor {
+  0% { transform: translate(700px, 10px); opacity: 0; }
+  4% { opacity: 1; }
+  16% { transform: translate(180px, 130px); opacity: 0; }
+  100% { transform: translate(180px, 130px); opacity: 0; }
+}
+
+/* 背景音乐悬浮按钮 */
+.music-player {
+  position: fixed; right: 22px; bottom: 24px; z-index: 90;
+  display: flex; align-items: center; gap: 10px;
+}
+.music-btn {
+  width: 46px; height: 46px; border-radius: 50%;
+  background: #fffdf8; border: 1.5px solid #e0d5c2;
+  box-shadow: 2px 4px 0 rgba(61,58,52,.10);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: transform .2s;
+}
+.music-btn:hover { transform: translateY(-2px); }
+.music-note { font-size: 22px; color: var(--accent); }
+.music-title {
+  font-size: 13px; color: var(--ink-soft);
+  background: rgba(250,246,239,.9); padding: 3px 12px; border-radius: 12px;
+  opacity: 0; transition: opacity .3s; pointer-events: none;
+}
+.music-player:hover .music-title, .music-player.playing .music-title { opacity: 1; }
+.music-player.playing .music-note { animation: noteSpin 3s linear infinite; display: inline-block; }
+@keyframes noteSpin {
+  0%, 100% { transform: rotate(-8deg); }
+  50% { transform: rotate(10deg) scale(1.15); }
+}

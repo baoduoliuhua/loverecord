@@ -28,6 +28,9 @@ const SCENE_OPTIONS: [string, string][] = [
   ['summer', '☀️ 夏（光点）'],
   ['autumn', '🍂 秋（落叶）'],
   ['winter', '❄️ 冬（雪花）'],
+  ['rain', '🌧️ 雨天（雨滴+涟漪）'],
+  ['fireworks', '🎆 烟火（点击放烟花）'],
+  ['starlight', '✨ 星空（流星）'],
 ];
 
 export function openMemoryForm(existing: OnlineMemory | null, hooks: AdminHooks) {

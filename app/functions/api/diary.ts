@@ -6,6 +6,7 @@ interface Entry {
   type: 'diary' | 'message';
   author: string;
   content: string;
+  image?: string;
   createdAt: string;
 }
 
@@ -33,6 +34,7 @@ export const onRequestPost: PagesFunction = async ({ request, env }) => {
   if (!['diary', 'message'].includes(type)) return json({ error: 'type 必须是 diary 或 message' }, 400);
   if (!author || String(author).trim().length === 0 || String(author).length > 20) return json({ error: '署名必填且不超过20字' }, 400);
   if (!content || String(content).trim().length === 0 || String(content).length > 5000) return json({ error: '内容必填且不超过5000字' }, 400);
+  if (body.image && !String(body.image).startsWith('/api/file/')) return json({ error: '图片路径不合法' }, 400);
 
   const raw = await (env as any).DIARY.get('entries');
   const entries: Entry[] = raw ? JSON.parse(raw) : [];
@@ -41,6 +43,7 @@ export const onRequestPost: PagesFunction = async ({ request, env }) => {
     type,
     author: String(author).trim(),
     content: String(content).trim(),
+    image: body.image || undefined,
     createdAt: new Date().toISOString(),
   };
   entries.push(entry);

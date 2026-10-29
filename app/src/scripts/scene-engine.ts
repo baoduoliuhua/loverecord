@@ -99,6 +99,43 @@ export function sceneHTML(scene: string): string {
 </div>`;
   }
 
+  if (scene === 'rain') return `
+<div class="scene scene-rain" aria-hidden="true">
+  <canvas class="rain-canvas" width="800" height="200" style="width:100%;height:auto;display:block"></canvas>
+  <div class="rain-label">🌧️ 那天下着雨</div>
+</div>`;
+
+  if (scene === 'fireworks') return `
+<div class="scene scene-fireworks" aria-hidden="true">
+  <canvas class="fw-canvas" width="800" height="240" style="width:100%;height:auto;display:block;cursor:crosshair"></canvas>
+  <div class="fw-label">🎆 点一下，放一朵烟花</div>
+</div>`;
+
+  if (scene === 'starlight') {
+    const stars = Array.from({ length: 40 }, (_, i) => {
+      const x = (i * 37) % 790 + 5, y = (i * 53) % 130 + 8, r = (i % 3) * 0.5 + 0.8;
+      return `<circle cx="${x}" cy="${y}" r="${r}" class="sl-star sl-d${i % 4}"/>`;
+    }).join('');
+    return `
+<div class="scene scene-starlight" aria-hidden="true">
+  <svg viewBox="0 0 800 200">
+    <defs>
+      <linearGradient id="sl-sky" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#141b2e"/><stop offset="1" stop-color="#2c3350"/>
+      </linearGradient>
+    </defs>
+    <rect width="800" height="200" fill="url(#sl-sky)"/>
+    <g fill="#fff">${stars}</g>
+    <circle cx="660" cy="46" r="22" fill="#f2e6c8" opacity=".92"/>
+    <circle cx="650" cy="40" r="20" fill="#141b2e" opacity=".25"/>
+    <g class="sl-meteor"><line x1="0" y1="0" x2="70" y2="26" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity=".9"/></g>
+    <g class="sl-meteor sl-meteor2"><line x1="0" y1="0" x2="55" y2="20" stroke="#fff" stroke-width="1.5" stroke-linecap="round" opacity=".8"/></g>
+    <path d="M0 200 L120 160 L260 200 L420 150 L600 200 L760 165 L800 200 Z" fill="#1a2033"/>
+    <text x="30" y="180" font-size="20" fill="#f2e6c8" opacity=".85">✨ 一起看的星空</text>
+  </svg>
+</div>`;
+  }
+
   if (['spring', 'summer', 'autumn', 'winter'].includes(scene)) {
     const label = { spring: '🌸 春', summer: '☀️ 夏', autumn: '🍂 秋', winter: '❄️ 冬' }[scene];
     const particles = Array.from({ length: 14 }, (_, i) => `<span class="particle p${i}"></span>`).join('');
@@ -173,6 +210,95 @@ export function initScenes(root: ParentNode = document) {
       t += 0.016;
       if (!reduced) requestAnimationFrame(draw);
     }
+    draw();
+  });
+
+  // ===== 雨天：雨滴下落 + 落地涟漪 =====
+  root.querySelectorAll<HTMLCanvasElement>('.rain-canvas:not([data-init])').forEach(canvas => {
+    canvas.dataset.init = '1';
+    const ctx = canvas.getContext('2d')!;
+    const W = canvas.width, H = canvas.height;
+    const drops = Array.from({ length: 70 }, () => ({
+      x: Math.random() * W, y: Math.random() * H,
+      len: 8 + Math.random() * 8, speed: 5 + Math.random() * 4,
+    }));
+    const rings: { x: number; r: number; alpha: number }[] = [];
+    function draw() {
+      ctx.fillStyle = '#3d4f63';
+      ctx.fillRect(0, 0, W, H);
+      ctx.strokeStyle = 'rgba(190,215,235,.55)';
+      ctx.lineWidth = 1.4;
+      for (const d of drops) {
+        ctx.beginPath();
+        ctx.moveTo(d.x, d.y);
+        ctx.lineTo(d.x - 2, d.y + d.len);
+        ctx.stroke();
+        d.y += d.speed;
+        if (d.y > H - 14) {
+          if (rings.length < 30) rings.push({ x: d.x, r: 1, alpha: .5 });
+          d.y = -d.len; d.x = Math.random() * W;
+        }
+      }
+      // 地面水波
+      for (let i = rings.length - 1; i >= 0; i--) {
+        const g = rings[i];
+        ctx.beginPath();
+        ctx.strokeStyle = `rgba(200,220,240,${g.alpha})`;
+        ctx.ellipse(g.x, H - 8, g.r * 1.8, g.r * 0.5, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        g.r += 0.7; g.alpha -= 0.008;
+        if (g.alpha <= 0) rings.splice(i, 1);
+      }
+      // 地面
+      ctx.fillStyle = 'rgba(255,255,255,.04)';
+      ctx.fillRect(0, H - 6, W, 6);
+      if (!reduced) requestAnimationFrame(draw);
+    }
+    draw();
+  });
+
+  // ===== 烟火：自动 + 点击绽放 =====
+  root.querySelectorAll<HTMLCanvasElement>('.fw-canvas:not([data-init])').forEach(canvas => {
+    canvas.dataset.init = '1';
+    const ctx = canvas.getContext('2d')!;
+    const W = canvas.width, H = canvas.height;
+    type P = { x: number; y: number; vx: number; vy: number; life: number; color: string };
+    let parts: P[] = [];
+    const COLORS = ['#ffd98a', '#f2a2b8', '#a8c8f0', '#c9a4e8', '#f5e6b8'];
+    function burst(x: number, y: number) {
+      const color = COLORS[Math.floor(Math.random() * COLORS.length)];
+      for (let i = 0; i < 60; i++) {
+        const a = (i / 60) * Math.PI * 2;
+        const sp = 1.6 + Math.random() * 2.2;
+        parts.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 60 + Math.random() * 25, color });
+      }
+    }
+    canvas.addEventListener('click', e => {
+      const r = canvas.getBoundingClientRect();
+      burst((e.clientX - r.left) * (W / r.width), (e.clientY - r.top) * (H / r.height));
+    });
+    let tick = 0;
+    // 星星背景（固定随机一次）
+    const stars = Array.from({ length: 45 }, () => ({ x: Math.random() * W, y: Math.random() * H * 0.7, r: Math.random() * 1.2 + .4 }));
+    function draw() {
+      ctx.fillStyle = '#171e30';
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = 'rgba(255,255,255,.7)';
+      for (const s of stars) { ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill(); }
+      for (let i = parts.length - 1; i >= 0; i--) {
+        const p = parts[i];
+        ctx.globalAlpha = Math.max(p.life / 70, 0);
+        ctx.fillStyle = p.color;
+        ctx.beginPath(); ctx.arc(p.x, p.y, 2, 0, Math.PI * 2); ctx.fill();
+        p.x += p.vx; p.y += p.vy; p.vy += 0.035; p.vx *= 0.985; p.life--;
+        if (p.life <= 0) parts.splice(i, 1);
+      }
+      ctx.globalAlpha = 1;
+      tick++;
+      if (tick % 200 === 100) burst(W * (0.2 + Math.random() * 0.6), H * (0.2 + Math.random() * 0.3));
+      if (!reduced) requestAnimationFrame(draw);
+    }
+    if (reduced) { burst(W / 2, H / 3); }
     draw();
   });
 

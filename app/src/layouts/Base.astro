@@ -40,8 +40,37 @@ const links = [
   <footer class="footer">
     <div class="container">把日子过成展品 · {site.coupleName} ❤</div>
   </footer>
+
+  {site.music.src && (
+    <div class="music-player" id="music-player">
+      <audio id="bg-music" src={site.music.src} loop preload="none"></audio>
+      <button class="music-btn" id="music-btn" aria-label="播放/暂停音乐" title={site.music.title}>
+        <span class="music-note">♪</span>
+      </button>
+      <span class="music-title">{site.music.title}</span>
+    </div>
+  )}
+
   <script>
     import '../scripts/cursor-magic';
+  </script>
+  <script>
+    const audio = document.getElementById('bg-music') as HTMLAudioElement | null;
+    const btn = document.getElementById('music-btn');
+    const player = document.getElementById('music-player');
+    if (audio && btn && player) {
+      // 音频文件不存在时隐藏按钮
+      audio.addEventListener('error', () => { player.style.display = 'none'; });
+      btn.addEventListener('click', () => {
+        if (audio.paused) {
+          audio.play().then(() => player.classList.add('playing'))
+            .catch(() => { player.style.display = 'none'; });
+        } else {
+          audio.pause();
+          player.classList.remove('playing');
+        }
+      });
+    }
   </script>
 </body>
 </html>

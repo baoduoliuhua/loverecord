@@ -15,7 +15,7 @@ interface Memory {
 const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json; charset=utf-8' } });
 
-const SCENES = ['default', 'seaside', 'mountain', 'city', 'spring', 'summer', 'autumn', 'winter'];
+const SCENES = ['default', 'seaside', 'mountain', 'city', 'spring', 'summer', 'autumn', 'winter', 'rain', 'fireworks', 'starlight'];
 
 function authed(request: Request, env: any): boolean {
   return !!env.DIARY_PASSWORD && request.headers.get('X-Diary-Password') === env.DIARY_PASSWORD;
