@@ -508,3 +508,36 @@ body.night main, body.night .nav, body.night .footer { position: relative; z-ind
 .batch-check-label input { width: 20px; height: 20px; cursor: pointer; }
 .tl-card, .gallery-video { position: relative; }
 .gallery figure.polaroid { position: relative; }
+
+/* 按钮高级交互：磁吸变量 + 墨韵晕染 + 手绘描边 + 按压回弹 */
+.btn, .miss-btn {
+  position: relative; overflow: visible;
+  transform: translate(var(--mx, 0px), var(--my, 0px));
+  transition: transform .35s cubic-bezier(.2,1.2,.4,1), box-shadow .25s;
+}
+/* 墨韵：从中心晕开的浅色 */
+.btn::after, .miss-btn::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit;
+  background: radial-gradient(circle at 50% 55%, rgba(255,255,255,.28), transparent 65%);
+  transform: scale(0); opacity: 0; pointer-events: none;
+  transition: transform .55s ease, opacity .55s ease;
+}
+.btn:hover::after, .miss-btn:hover::after { transform: scale(1.6); opacity: 1; }
+.btn.ghost::after { background: radial-gradient(circle at 50% 55%, rgba(212,123,92,.16), transparent 65%); }
+/* 手绘描边 */
+.btn-outline {
+  position: absolute; inset: -4px; width: calc(100% + 8px); height: calc(100% + 8px);
+  pointer-events: none; z-index: 2;
+}
+.btn-outline rect {
+  fill: none; stroke: var(--accent); stroke-width: 2.4; stroke-linecap: round;
+  stroke-dasharray: 600; stroke-dashoffset: 600;
+  transition: stroke-dashoffset .7s ease;
+}
+.btn:hover .btn-outline rect, .miss-btn:hover .btn-outline rect { stroke-dashoffset: 0; }
+.miss-btn .btn-outline rect { stroke: #f2cf9d; }
+/* 按压回弹 */
+.btn:active, .miss-btn:active {
+  transform: translate(var(--mx, 0px), var(--my, 0px)) scale(.93);
+  transition: transform .1s ease;
+}
