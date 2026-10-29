@@ -2,15 +2,47 @@
 import Base from '../layouts/Base.astro';
 import { readFileSync } from 'node:fs';
 import { parse } from 'yaml';
+import outline from '../content/china-outline.json';
 
-const places = parse(readFileSync('src/content/places.yaml', 'utf-8')) as { name: string; lat: number; lng: number; note: string }[];
+interface Place { name: string; lat: number; lng: number; note: string }
+const places = parse(readFileSync('src/content/places.yaml', 'utf-8')) as Place[];
+
+// 与轮廓生成脚本相同的投影（GCJ-02 坐标系，含南海诸岛）
+const { minLng, maxLat, cos, scale } = outline.project;
+const project = (p: Place) => ({
+  x: +((p.lng - minLng) * cos * scale).toFixed(1),
+  y: +((maxLat - p.lat) * scale).toFixed(1),
+});
+const dots = places.map(p => ({ ...p, ...project(p) }));
+const route = dots.map(d => `${d.x},${d.y}`).join(' ');
 ---
 <Base title="足迹地图" active="/map/">
   <h1 class="hand-title">足迹地图</h1>
   <p class="hand-sub">一起去过的地方，都会亮起来</p>
 
-  <div class="map-wrap card">
-    <div id="map"></div>
+  <div class="map-paper">
+    <svg viewBox={outline.viewBox} class="china-sketch" role="img" aria-label="中国轮廓简笔地图">
+      <!-- 底层：完整国界轮廓（含藏南、台湾、南海诸岛），填充国土 -->
+      <g class="country-layer">
+        {outline.countryPaths.map(d => <path d={d} />)}
+      </g>
+      <!-- 上层：省界线（仅描边，不填充） -->
+      <g class="province-layer">
+        {outline.provincePaths.map(d => <path d={d} />)}
+      </g>
+      <!-- 航线 -->
+      {dots.length > 1 && (
+        <polyline points={route} class="route-line" />
+      )}
+      <!-- 城市点与标签 -->
+      {dots.map((d, i) => (
+        <g class={`city-dot city-${i}`}>
+          <circle class="dot-pulse" cx={d.x} cy={d.y} r="12" />
+          <circle class="dot-core" cx={d.x} cy={d.y} r="6" />
+          <text class="dot-label" x={d.x} y={d.y - 18} text-anchor="middle">{d.name}</text>
+        </g>
+      ))}
+    </svg>
   </div>
 
   <ul class="place-list">
@@ -18,57 +50,34 @@ const places = parse(readFileSync('src/content/places.yaml', 'utf-8')) as { name
   </ul>
 </Base>
 
-<style>
-.map-wrap { padding: 10px; }
-#map { width: 100%; height: 480px; border-radius: 8px; }
+<style is:global>
+.map-paper {
+  background: #fffdf8; border: 1px solid #ece2d0; border-radius: 14px;
+  box-shadow: 2px 4px 0 rgba(61,58,52,.06);
+  padding: 24px 16px;
+}
+.china-sketch { width: 100%; height: auto; display: block; }
+.country-layer path {
+  fill: #f3ecdf; stroke: #b6a88f; stroke-width: 1.3;
+  stroke-linejoin: round; stroke-linecap: round;
+}
+.province-layer path {
+  fill: none; stroke: #cfc2ab; stroke-width: 0.7;
+  stroke-linejoin: round; stroke-linecap: round;
+}
+.route-line {
+  fill: none; stroke: var(--accent); stroke-width: 2.2;
+  stroke-dasharray: 7 8; stroke-linecap: round;
+  animation: routeDash 3s linear infinite;
+}
+@keyframes routeDash { to { stroke-dashoffset: -60; } }
+.dot-core { fill: var(--accent); stroke: #fff; stroke-width: 2; }
+.dot-pulse { fill: var(--accent); opacity: .18; animation: dotPulse 2.6s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+.city-dot:nth-child(2n) .dot-pulse { animation-delay: 1.2s; }
+@keyframes dotPulse { 0%,100% { transform: scale(.7); opacity: .12; } 50% { transform: scale(1.25); opacity: .25; } }
+.dot-label { font-size: 20px; fill: var(--ink); font-family: var(--font-hand); paint-order: stroke; stroke: #fffdf8; stroke-width: 4; }
 .place-list { list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-top: 26px; }
 .place-list li { display: flex; flex-direction: column; gap: 4px; padding: 16px 20px; }
 .place-list span { color: var(--ink-soft); font-size: 14px; }
+@media (prefers-reduced-motion: reduce) { .route-line, .dot-pulse { animation: none; } }
 </style>
-
-<script is:inline>
-  window._TMapSecurityConfig = {
-    serviceHost: 'http://127.0.0.1:__WB_HTTP_PORT__/_TMapService/_wbt/__WB_TMAP_SECRET__',
-  };
-</script>
-<script is:inline src="https://map.qq.com/api/gljs?v=1.exp"></script>
-<script define:vars={{ places }}>
-  window.addEventListener('load', () => {
-    if (typeof TMap === 'undefined') return;
-    const map = new TMap.Map('map', {
-      zoom: 5,
-      center: new TMap.LatLng(33.5, 115.0),
-    });
-    const icon = 'data:image/svg+xml,' + encodeURIComponent(
-      '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40"><path d="M16 39 C10 30 2 22 2 14 A14 14 0 1 1 30 14 C30 22 22 30 16 39Z" fill="#d47b5c" stroke="#fff" stroke-width="2"/><text x="16" y="19" text-anchor="middle" font-size="13" fill="#fff">❤</text></svg>'
-    );
-    new TMap.MultiMarker({
-      map,
-      styles: { love: new TMap.MarkerStyle({ width: 32, height: 40, src: icon, anchor: { x: 16, y: 40 } }) },
-      geometries: places.map((p, i) => ({
-        id: String(i), styleId: 'love', position: new TMap.LatLng(p.lat, p.lng),
-        properties: { title: p.name },
-      })),
-    });
-    // 按记录顺序把城市连成手绘虚线航线
-    if (places.length > 1) {
-      new TMap.MultiPolyline({
-        map,
-        styles: {
-          route: new TMap.PolylineStyle({ color: '#d47b5c', width: 2, dashArray: [8, 8], lineCap: 'round' }),
-        },
-        geometries: [{
-          id: 'route', styleId: 'route',
-          paths: places.map(p => new TMap.LatLng(p.lat, p.lng)),
-        }],
-      });
-    }
-    new TMap.MultiLabel({
-      map,
-      styles: { name: new TMap.LabelStyle({ color: '#3d3a34', size: 14, offset: { x: 0, y: 12 }, strokeColor: '#ffffff', strokeWidth: 3 }) },
-      geometries: places.map((p, i) => ({
-        id: 'label' + i, styleId: 'name', position: new TMap.LatLng(p.lat, p.lng), content: p.name,
-      })),
-    });
-  });
-</script>
