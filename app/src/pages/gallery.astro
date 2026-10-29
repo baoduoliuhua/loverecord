@@ -46,10 +46,15 @@ const photos = (await getCollection('timeline'))
   import { isLoggedIn, askPassword, openMemoryForm } from '../scripts/memory-admin';
 
   const galleryEl = document.getElementById('gallery')!;
+  const groupedEl = document.getElementById('grouped')!;
   const box = document.getElementById('lightbox')!;
   const img = document.getElementById('lightbox-img') as HTMLImageElement;
   const adminToggle = document.getElementById('admin-toggle') as HTMLButtonElement;
   const adminAdd = document.getElementById('admin-add') as HTMLButtonElement;
+  const batchToggle = document.getElementById('batch-toggle') as HTMLButtonElement;
+  const batchBar = document.getElementById('batch-bar')!;
+  const batchAll = document.getElementById('batch-all') as HTMLInputElement;
+  const batchCount = document.getElementById('batch-count')!;
 
   let allPhotos: any[] = [];
   let currentView = 'collage';
@@ -162,11 +167,6 @@ const photos = (await getCollection('timeline'))
   if (isLoggedIn()) { adminAdd.hidden = false; batchToggle.hidden = false; }
 
   // ===== 批量管理 =====
-  const batchToggle = document.getElementById('batch-toggle') as HTMLButtonElement;
-  const batchBar = document.getElementById('batch-bar')!;
-  const batchAll = document.getElementById('batch-all') as HTMLInputElement;
-  const batchCount = document.getElementById('batch-count')!;
-
   function selectedUrls(): string[] {
     return [...document.querySelectorAll<HTMLInputElement>('.batch-check:checked')].map(c => c.dataset.url!);
   }

@@ -63,6 +63,10 @@ const staticMemories = memories.map(m => ({
   const timelineEl = document.getElementById('timeline')!;
   const adminToggle = document.getElementById('admin-toggle') as HTMLButtonElement;
   const adminAdd = document.getElementById('admin-add') as HTMLButtonElement;
+  const batchToggle = document.getElementById('batch-toggle') as HTMLButtonElement;
+  const batchBar = document.getElementById('batch-bar')!;
+  const batchAll = document.getElementById('batch-all') as HTMLInputElement;
+  const batchCount = document.getElementById('batch-count')!;
 
   const escBody = (s: string) => esc(s).replace(/\n/g, '<br>');
 
@@ -122,23 +126,30 @@ const staticMemories = memories.map(m => ({
   const yearNav = document.getElementById('year-nav')!;
 
   async function renderAll() {
-    const online = await fetchOnlineMemories();
-    allItems = [...staticItems(), ...onlineItems(online)]
-      .sort((a, b) => a.sortDate.localeCompare(b.sortDate));
-    renderVisible();
+    try {
+      const online = await fetchOnlineMemories();
+      allItems = [...staticItems(), ...onlineItems(online)]
+        .sort((a, b) => a.sortDate.localeCompare(b.sortDate));
+      renderVisible();
+    } catch (err: any) {
+      timelineEl.innerHTML = `<pre style="color:#c0615a;white-space:pre-wrap">渲染出错：${err?.stack || err}</pre>`;
+      console.error(err);
+    }
   }
 
   function renderVisible() {
-    const visible = allItems.slice(0, shown);
+    // 最新内容优先：初始只显示最新 PAGE_SIZE 条（仍按时间正序展示）
+    const offset = Math.max(0, allItems.length - shown);
+    const visible = allItems.slice(offset);
     timelineEl.innerHTML = visible.map(cardHTML).join('');
     initScenes(timelineEl);
     initStacks(timelineEl);
     bindAdmin(allItems);
 
-    // 加载更多按钮
-    const remain = allItems.length - shown;
+    // 加载更多按钮（补更早的）
+    const remain = offset;
     loadMoreBtn.hidden = remain <= 0;
-    if (remain > 0) loadMoreBtn.textContent = `加载更多回忆（还有 ${remain} 条）`;
+    if (remain > 0) loadMoreBtn.textContent = `加载更早回忆（还有 ${remain} 条）`;
 
     // 年份锚点
     const years = [...new Set(allItems.map(i => i.sortDate.slice(0, 4)))];
@@ -155,8 +166,9 @@ const staticMemories = memories.map(m => ({
         const y = chip.dataset.year!;
         const idx = allItems.findIndex(i => i.sortDate.startsWith(y));
         if (idx < 0) return;
-        if (idx + 1 > shown) { shown = idx + 1; renderVisible(); }
-        timelineEl.querySelectorAll('.tl-item')[idx]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (allItems.length - idx > shown) { shown = allItems.length - idx; renderVisible(); }
+        const domIdx = idx - Math.max(0, allItems.length - shown);
+        if (domIdx >= 0) timelineEl.querySelectorAll('.tl-item')[domIdx]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });
     });
 
@@ -226,10 +238,6 @@ const staticMemories = memories.map(m => ({
   if (isLoggedIn()) { adminAdd.hidden = false; batchToggle.hidden = false; }
 
   // ===== 批量管理 =====
-  const batchBar = document.getElementById('batch-bar')!;
-  const batchAll = document.getElementById('batch-all') as HTMLInputElement;
-  const batchCount = document.getElementById('batch-count')!;
-
   function selectedIds(): string[] {
     return [...timelineEl.querySelectorAll<HTMLInputElement>('.batch-check:checked')].map(c => c.dataset.id!);
   }
