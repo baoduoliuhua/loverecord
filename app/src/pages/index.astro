@@ -265,11 +265,25 @@ const season = m >= 3 && m <= 5 ? 'spring' : m >= 6 && m <= 8 ? 'summer' : m >= 
 </script>
 
 <script>
-  // 每日一句：按日期轮换
+  // 每日一句：按日期轮换 + 打字机效果
   const quotes = (window as any).__QUOTES || [];
   if (quotes.length) {
     const dayIndex = Math.floor(Date.now() / 86400000) % quotes.length;
-    document.getElementById('daily-quote')!.textContent = '「 ' + quotes[dayIndex] + ' 」';
+    const text = '「 ' + quotes[dayIndex] + ' 」';
+    const el = document.getElementById('daily-quote')!;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      el.textContent = text;
+    } else {
+      el.classList.add('typewriter');
+      let i = 0;
+      const timer = setInterval(() => {
+        el.textContent = text.slice(0, ++i);
+        if (i >= text.length) {
+          clearInterval(timer);
+          el.classList.remove('typewriter');
+        }
+      }, 85);
+    }
   }
 
   // 想你了按钮

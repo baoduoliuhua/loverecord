@@ -54,6 +54,7 @@ const staticMemories = memories.map(m => ({
   import { fetchOnlineMemories, deleteMemory, deleteMemories, esc, imagesOf, isVideo, type OnlineMemory } from '../scripts/memories-shared';
   import { isLoggedIn, askPassword, openMemoryForm } from '../scripts/memory-admin';
   import { stackHTML, initStacks } from '../scripts/photo-stack';
+  import { initCardTilt } from '../scripts/scroll-effects';
 
   type Item = {
     id: string; title: string; date: string; sortDate: string; scene: string;
@@ -173,12 +174,37 @@ const staticMemories = memories.map(m => ({
     });
 
     animate();
+    initCardTilt();
   }
 
   loadMoreBtn.addEventListener('click', () => {
     shown += PAGE_SIZE;
     renderVisible();
   });
+
+  // E. 滚动年份高亮（scrollspy）
+  const yearSpy = new IntersectionObserver(entries => {
+    if (yearNav.hidden) return;
+    for (const en of entries) {
+      if (en.isIntersecting) {
+        const idx = [...timelineEl.querySelectorAll('.tl-item')].indexOf(en.target as HTMLElement);
+        const visible = allItems.slice(Math.max(0, allItems.length - shown));
+        const item = visible[idx];
+        if (!item) continue;
+        const y = item.sortDate.slice(0, 4);
+        yearNav.querySelectorAll('.year-chip').forEach(c => {
+          c.classList.toggle('active', (c as HTMLElement).dataset.year === y);
+        });
+      }
+    }
+  }, { rootMargin: '-30% 0px -55% 0px' });
+  const origRenderVisible = renderVisible;
+  // 每次渲染后重新观察（用 MutationObserver 监听列表变化）
+  (window as any).__yearSpyObserve = () => {
+    yearSpy.disconnect();
+    timelineEl.querySelectorAll('.tl-item').forEach(el => yearSpy.observe(el));
+  };
+  new MutationObserver(() => (window as any).__yearSpyObserve()).observe(timelineEl, { childList: true });
 
   function bindAdmin(items: Item[]) {
     timelineEl.querySelectorAll<HTMLButtonElement>('.tl-admin button').forEach(btn => {

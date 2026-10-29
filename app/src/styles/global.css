@@ -578,3 +578,41 @@ body.page-leave { animation: pageOut .24s ease forwards; }
   from { opacity: 1; transform: translateY(0) rotateX(0deg); }
   to { opacity: 0; transform: translateY(-12px) rotateX(2deg); }
 }
+
+/* 滚动进度墨迹 */
+.scroll-ink {
+  position: fixed; top: 0; left: 0; height: 3px; z-index: 100;
+  background: linear-gradient(90deg, var(--accent), #c9a44c);
+  width: 0; transition: width .12s linear;
+  border-radius: 0 3px 3px 0;
+}
+/* 导航自动收放 */
+.nav { transition: transform .3s ease; }
+.nav.nav-hidden { transform: translateY(-110%); }
+/* 回顶纸飞机 */
+.back-top {
+  position: fixed; right: 24px; bottom: 88px; z-index: 90;
+  width: 46px; height: 46px; border-radius: 50%;
+  background: #fffdf8; border: 1.5px solid #e0d5c2; color: var(--accent);
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  box-shadow: 2px 4px 0 rgba(61,58,52,.10);
+  opacity: 0; pointer-events: none; transform: translateY(14px);
+  transition: opacity .3s, transform .3s;
+}
+.back-top.visible { opacity: 1; pointer-events: auto; transform: translateY(0); }
+.back-top.flying { animation: flyUp .8s ease; }
+@keyframes flyUp {
+  0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+  100% { transform: translate(-40px, -70vh) rotate(-18deg); opacity: 0; }
+}
+/* 卡片 3D 倾斜与光泽 */
+.tiltable { transition: transform .25s ease-out; position: relative; }
+.tiltable::before {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: radial-gradient(circle at var(--glare-x, 50%) var(--glare-y, 50%), rgba(255,255,255,.22), transparent 55%);
+  opacity: 0; transition: opacity .3s;
+}
+.tiltable:hover::before { opacity: 1; }
+/* 打字机光标 */
+.typewriter::after { content: '│'; color: var(--accent); animation: caretBlink .8s step-end infinite; }
+@keyframes caretBlink { 50% { opacity: 0; } }
