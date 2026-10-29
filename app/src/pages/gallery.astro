@@ -44,13 +44,15 @@ const photos = (await getCollection('timeline'))
       .sort((a, b) => b.date.localeCompare(a.date));
 
     galleryEl.innerHTML = all.map((p, i) => `
-      <figure class="polaroid tape develop ${i % 2 ? 'tilt-r' : 'tilt-l'}" data-full="${p.image}">
+      <figure class="polaroid tape develop collage-item c${i % 6} ${i % 2 ? 'tilt-r' : 'tilt-l'}" data-full="${p.image}">
         <div class="photo-frame">
           <img src="${p.image}" alt="${p.alt}" loading="lazy" />
           <div class="develop-veil" aria-hidden="true"></div>
         </div>
         <figcaption>${p.date} · ${p.title}</figcaption>
-      </figure>`).join('');
+      </figure>
+      ${i % 6 === 3 ? `<div class="collage-note c-note"><span>✎ 这些日子<br>都值得</span><svg viewBox="0 0 60 60" width="44" height="44"><path d="M30 50 C20 40 8 32 8 20 A11 11 0 0 1 30 12 A11 11 0 0 1 52 20 C52 32 40 40 30 50Z" fill="none" stroke="#d47b5c" stroke-width="2.4"/></svg></div>` : ''}
+    `).join('');
 
     galleryEl.querySelectorAll('figure').forEach(f => {
       f.addEventListener('click', () => {
@@ -91,10 +93,45 @@ const photos = (await getCollection('timeline'))
 </script>
 
 <style is:global>
-.gallery { columns: 3; column-gap: 30px; padding: 10px 4px; }
-.gallery figure { break-inside: avoid; margin-bottom: 34px; cursor: zoom-in; }
-@media (max-width: 900px) { .gallery { columns: 2; } }
-@media (max-width: 520px) { .gallery { columns: 1; } }
+.gallery {
+  display: grid; grid-template-columns: repeat(12, 1fr);
+  gap: 30px 26px; padding: 16px 4px; align-items: start;
+}
+.gallery figure { cursor: zoom-in; margin: 0; }
+/* 拼贴节奏：六种跨度与位置，像手账跨页 */
+.collage-item.c0 { grid-column: span 5; }
+.collage-item.c1 { grid-column: span 4; margin-top: 34px; }
+.collage-item.c2 { grid-column: span 3; margin-top: 10px; }
+.collage-item.c3 { grid-column: span 4; }
+.collage-item.c4 { grid-column: span 5; margin-top: 26px; }
+.collage-item.c5 { grid-column: span 3; margin-top: 6px; }
+/* 穿插的手写便签 */
+.collage-note {
+  grid-column: span 3; align-self: center; justify-self: center;
+  text-align: center; color: var(--ink-soft);
+  font-family: var(--font-hand); font-size: 19px; line-height: 1.7;
+  transform: rotate(-5deg);
+  background: #f7ecc8; padding: 22px 16px 14px;
+  border-radius: 2px; box-shadow: 2px 4px 0 rgba(61,58,52,.08);
+  position: relative;
+}
+.collage-note::before {
+  content: ''; position: absolute; top: -10px; left: 50%; transform: translateX(-50%) rotate(-3deg);
+  width: 64px; height: 20px; background: var(--tape); opacity: .85;
+}
+.collage-note svg { margin-top: 8px; }
+
+@media (max-width: 900px) {
+  .gallery { grid-template-columns: repeat(6, 1fr); gap: 24px 18px; }
+  .collage-item.c0, .collage-item.c4 { grid-column: span 4; }
+  .collage-item.c1, .collage-item.c2, .collage-item.c3, .collage-item.c5 { grid-column: span 3; margin-top: 0; }
+  .collage-note { grid-column: span 2; font-size: 16px; }
+}
+@media (max-width: 560px) {
+  .gallery { grid-template-columns: repeat(2, 1fr); gap: 20px 14px; }
+  .collage-item, .collage-item[class*="c"] { grid-column: span 1; margin-top: 0; }
+  .collage-note { grid-column: span 2; }
+}
 .lightbox {
   position: fixed; inset: 0; z-index: 100;
   background: rgba(30, 26, 20, 0.85);

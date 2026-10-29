@@ -374,3 +374,35 @@ body.night main, body.night .nav, body.night .footer { position: relative; z-ind
 .city-memory-info { display: flex; flex-direction: column; gap: 4px; }
 .city-memory-title { font-size: 18px; color: var(--ink); }
 .city-memory-date { font-size: 13px; color: var(--ink-soft); }
+
+/* 书桌两侧装饰（仅宽屏） */
+.desk { display: none; }
+@media (min-width: 1200px) {
+  .desk {
+    display: block; position: fixed; top: 0; bottom: 0; width: 150px;
+    pointer-events: none; z-index: 0;
+  }
+  .desk-left { left: 0; }
+  .desk-right { right: 0; }
+  .desk-tape-v {
+    position: absolute; top: 0; bottom: 0; width: 26px; opacity: .5;
+    background: repeating-linear-gradient(0deg, #e8d9b8 0 14px, #f3e8cc 14px 28px);
+    -webkit-mask-image: linear-gradient(180deg, transparent, #000 12%, #000 88%, transparent);
+    mask-image: linear-gradient(180deg, transparent, #000 12%, #000 88%, transparent);
+  }
+  .desk-left .desk-tape-v { left: 26px; }
+  .desk-right .desk-tape-v { right: 26px; }
+  .desk-vertical-text {
+    position: absolute; top: 200px; left: 66px;
+    writing-mode: vertical-rl; font-size: 22px; letter-spacing: .5em;
+    color: #c7b99e; font-family: var(--font-hand);
+  }
+  .desk-plane { position: absolute; left: 40px; bottom: 90px; animation: planeFloat 7s ease-in-out infinite; }
+  @keyframes planeFloat {
+    0%,100% { transform: translateY(0) rotate(-4deg); }
+    50% { transform: translateY(-16px) rotate(3deg); }
+  }
+  .desk-stamp { position: absolute; right: 30px; top: 130px; transform: rotate(6deg); opacity: .85; }
+  .desk-flower { position: absolute; right: 48px; bottom: 70px; transform: rotate(-8deg); opacity: .9; }
+}
+@media (prefers-reduced-motion: reduce) { .desk-plane { animation: none; } }
