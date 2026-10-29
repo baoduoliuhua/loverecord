@@ -145,6 +145,14 @@ export function sceneHTML(scene: string): string {
 }
 
 // 初始化场景动画（对 root 内新插入的场景生效，可重复调用）
+// 性能：滚出视口的 Canvas 场景自动暂停绘制
+const canvasVisibility = new WeakMap<HTMLCanvasElement, boolean>();
+const visibilityObserver = typeof IntersectionObserver !== 'undefined'
+  ? new IntersectionObserver(entries => {
+      for (const en of entries) canvasVisibility.set(en.target as HTMLCanvasElement, en.isIntersecting);
+    }, { rootMargin: '100px' })
+  : null;
+
 export function initScenes(root: ParentNode = document) {
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -160,7 +168,7 @@ export function initScenes(root: ParentNode = document) {
   });
 
   root.querySelectorAll<HTMLCanvasElement>('.ss-canvas:not([data-init])').forEach(canvas => {
-    canvas.dataset.init = '1';
+    canvas.dataset.init = '1'; visibilityObserver?.observe(canvas); canvasVisibility.set(canvas, true);
     const ctx = canvas.getContext('2d')!;
     const W = canvas.width, H = canvas.height;
     const ripples: { x: number; y: number; t: number }[] = [];
@@ -208,14 +216,14 @@ export function initScenes(root: ParentNode = document) {
       ripples.forEach(r => r.t += 1);
       for (let i = ripples.length - 1; i >= 0; i--) if (ripples[i].t > 90) ripples.splice(i, 1);
       t += 0.016;
-      if (!reduced) requestAnimationFrame(draw);
+      if (!reduced && canvasVisibility.get(canvas) !== false) requestAnimationFrame(draw); else if (!reduced) setTimeout(() => requestAnimationFrame(draw), 400);
     }
     draw();
   });
 
   // ===== 雨天：雨滴下落 + 落地涟漪 =====
   root.querySelectorAll<HTMLCanvasElement>('.rain-canvas:not([data-init])').forEach(canvas => {
-    canvas.dataset.init = '1';
+    canvas.dataset.init = '1'; visibilityObserver?.observe(canvas); canvasVisibility.set(canvas, true);
     const ctx = canvas.getContext('2d')!;
     const W = canvas.width, H = canvas.height;
     const drops = Array.from({ length: 70 }, () => ({
@@ -252,14 +260,14 @@ export function initScenes(root: ParentNode = document) {
       // 地面
       ctx.fillStyle = 'rgba(255,255,255,.04)';
       ctx.fillRect(0, H - 6, W, 6);
-      if (!reduced) requestAnimationFrame(draw);
+      if (!reduced && canvasVisibility.get(canvas) !== false) requestAnimationFrame(draw); else if (!reduced) setTimeout(() => requestAnimationFrame(draw), 400);
     }
     draw();
   });
 
   // ===== 烟火：自动 + 点击绽放 =====
   root.querySelectorAll<HTMLCanvasElement>('.fw-canvas:not([data-init])').forEach(canvas => {
-    canvas.dataset.init = '1';
+    canvas.dataset.init = '1'; visibilityObserver?.observe(canvas); canvasVisibility.set(canvas, true);
     const ctx = canvas.getContext('2d')!;
     const W = canvas.width, H = canvas.height;
     type P = { x: number; y: number; vx: number; vy: number; life: number; color: string };
@@ -296,7 +304,7 @@ export function initScenes(root: ParentNode = document) {
       ctx.globalAlpha = 1;
       tick++;
       if (tick % 200 === 100) burst(W * (0.2 + Math.random() * 0.6), H * (0.2 + Math.random() * 0.3));
-      if (!reduced) requestAnimationFrame(draw);
+      if (!reduced && canvasVisibility.get(canvas) !== false) requestAnimationFrame(draw); else if (!reduced) setTimeout(() => requestAnimationFrame(draw), 400);
     }
     if (reduced) { burst(W / 2, H / 3); }
     draw();
