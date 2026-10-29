@@ -3,10 +3,13 @@
 export function initBackgroundMagic() {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-  // ===== C. 斑驳光影 =====
+  // ===== C. 斑驳光影（CSS动画作用于内层，JS视差作用于外层，避免冲突）=====
+  const dappleWrap = document.createElement('div');
+  dappleWrap.className = 'dapple-wrap';
   const dapple = document.createElement('div');
   dapple.className = 'light-dapple';
-  document.body.appendChild(dapple);
+  dappleWrap.appendChild(dapple);
+  document.body.appendChild(dappleWrap);
   let dx = 0, dy = 0, cx = 0, cy = 0, raf = 0;
   document.addEventListener('mousemove', e => {
     dx = (e.clientX / window.innerWidth - 0.5) * 30;
@@ -16,7 +19,7 @@ export function initBackgroundMagic() {
   function shift() {
     cx += (dx - cx) * 0.04;
     cy += (dy - cy) * 0.04;
-    dapple.style.transform = `translate(${cx}px, ${cy}px)`;
+    dappleWrap.style.transform = `translate(${cx}px, ${cy}px)`;
     if (Math.abs(dx - cx) > 0.2 || Math.abs(dy - cy) > 0.2) raf = requestAnimationFrame(shift);
     else raf = 0;
   }

@@ -59,13 +59,21 @@ export function initCardTilt() {
     if ((card as any).__tiltInit) return;
     (card as any).__tiltInit = true;
     card.classList.add('tiltable');
+    let tiltRaf = 0;
+    let lastEvent: MouseEvent | null = null;
     card.addEventListener('mousemove', e => {
-      const r = card.getBoundingClientRect();
-      const x = (e.clientX - r.left) / r.width - 0.5;
-      const y = (e.clientY - r.top) / r.height - 0.5;
-      card.style.transform = `perspective(900px) rotateY(${x * 6}deg) rotateX(${-y * 5}deg) translateY(-3px)`;
-      card.style.setProperty('--glare-x', `${(x + 0.5) * 100}%`);
-      card.style.setProperty('--glare-y', `${(y + 0.5) * 100}%`);
+      lastEvent = e;
+      if (tiltRaf) return;
+      tiltRaf = requestAnimationFrame(() => {
+        tiltRaf = 0;
+        if (!lastEvent) return;
+        const r = card.getBoundingClientRect();
+        const x = (lastEvent.clientX - r.left) / r.width - 0.5;
+        const y = (lastEvent.clientY - r.top) / r.height - 0.5;
+        card.style.transform = `perspective(900px) rotateY(${x * 6}deg) rotateX(${-y * 5}deg) translateY(-3px)`;
+        card.style.setProperty('--glare-x', `${(x + 0.5) * 100}%`);
+        card.style.setProperty('--glare-y', `${(y + 0.5) * 100}%`);
+      });
     });
     card.addEventListener('mouseleave', () => {
       card.style.transform = '';
