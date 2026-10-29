@@ -322,9 +322,15 @@ export function initScenes(root: ParentNode = document) {
     };
     setPos(0.05);
     if (reduced) { setPos(1); return; }
+    let mtTick = false;
     const onScroll = () => {
-      const r = (scene as HTMLElement).getBoundingClientRect();
-      setPos((window.innerHeight - r.top) / (window.innerHeight * 0.85));
+      if (mtTick) return;
+      mtTick = true;
+      requestAnimationFrame(() => {
+        const r = (scene as HTMLElement).getBoundingClientRect();
+        setPos((window.innerHeight - r.top) / (window.innerHeight * 0.85));
+        mtTick = false;
+      });
     };
     window.addEventListener('scroll', onScroll, { passive: true });
     onScroll();

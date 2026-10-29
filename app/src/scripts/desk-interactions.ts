@@ -7,19 +7,29 @@ export function initDesk() {
   const right = document.querySelector<HTMLElement>('.desk-right');
   if (!left || !right) return;
 
-  // ===== E. 整体视差（作用于容器，不和各物件自身动画冲突）=====
-  let tx = 0, ty = 0, cx = 0, cy = 0;
-  document.addEventListener('mousemove', e => {
-    tx = (e.clientX / window.innerWidth - 0.5) * 2;
-    ty = (e.clientY / window.innerHeight - 0.5) * 2;
-  }, { passive: true });
+  // ===== E. 整体视差（静止时休眠，鼠标移动才唤醒）=====
+  let tx = 0, ty = 0, cx = 0, cy = 0, rafId = 0;
   function parallax() {
     cx += (tx - cx) * 0.06;
     cy += (ty - cy) * 0.06;
     left.style.transform = `translate(${cx * 10}px, ${cy * 8}px)`;
     right.style.transform = `translate(${cx * -14}px, ${cy * -10}px)`;
-    requestAnimationFrame(parallax);
+    // 位置稳定后停止循环，不再每帧重绘
+    if (Math.abs(tx - cx) > 0.001 || Math.abs(ty - cy) > 0.001) {
+      rafId = requestAnimationFrame(parallax);
+    } else {
+      rafId = 0;
+    }
   }
+  let lastMove = 0;
+  document.addEventListener('mousemove', e => {
+    const now = performance.now();
+    if (now - lastMove < 40) return; // 40ms 节流
+    lastMove = now;
+    tx = (e.clientX / window.innerWidth - 0.5) * 2;
+    ty = (e.clientY / window.innerHeight - 0.5) * 2;
+    if (!rafId) parallax();
+  }, { passive: true });
   parallax();
 
   // ===== A. 纸飞机追手 =====

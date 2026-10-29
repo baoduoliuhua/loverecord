@@ -37,8 +37,15 @@ export function initScrollEffects() {
     setTimeout(() => fly.classList.remove('flying'), 800);
   });
 
+  // 滚动事件合并到动画帧，避免高频触发
+  let ticking = false;
   window.addEventListener('scroll', () => {
-    updateInk(); updateNav(); updateFly();
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => {
+      updateInk(); updateNav(); updateFly();
+      ticking = false;
+    });
   }, { passive: true });
   updateInk(); updateNav(); updateFly();
 }
