@@ -5,8 +5,9 @@ const json = (data: unknown, status = 200) =>
 
 const TYPES: Record<string, string> = {
   'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif',
+  'video/mp4': 'mp4', 'video/webm': 'webm', 'video/quicktime': 'mov',
 };
-const MAX_SIZE = 8 * 1024 * 1024; // 8MB
+const MAX_SIZE = 100 * 1024 * 1024; // 100MB（Cloudflare 单请求上限）
 
 export const onRequestPost: PagesFunction = async ({ request, env }) => {
   if (!env.DIARY_PASSWORD || request.headers.get('X-Diary-Password') !== env.DIARY_PASSWORD) {
@@ -17,8 +18,8 @@ export const onRequestPost: PagesFunction = async ({ request, env }) => {
   const file = form.get('file');
   if (!(file instanceof File)) return json({ error: '缺少文件' }, 400);
   const ext = TYPES[file.type];
-  if (!ext) return json({ error: '仅支持 jpg/png/webp/gif' }, 400);
-  if (file.size > MAX_SIZE) return json({ error: '图片不能超过 8MB' }, 400);
+  if (!ext) return json({ error: '支持 jpg/png/webp/gif 图片或 mp4/webm/mov 视频' }, 400);
+  if (file.size > MAX_SIZE) return json({ error: '单个文件不能超过 100MB' }, 400);
 
   const key = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${ext}`;
   await env.BUCKET.put(key, await file.arrayBuffer(), { httpMetadata: { contentType: file.type } });

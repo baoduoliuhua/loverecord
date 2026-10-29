@@ -23,6 +23,14 @@ const staticMemories = memories.map(m => ({
   <div class="admin-bar">
     <button class="btn ghost" id="admin-toggle">🔐 管理</button>
     <button class="btn" id="admin-add" hidden>＋ 添加回忆</button>
+    <button class="btn ghost" id="batch-toggle" hidden>☑ 批量管理</button>
+  </div>
+
+  <div class="batch-bar" id="batch-bar" hidden>
+    <label><input type="checkbox" id="batch-all" /> 全选</label>
+    <span id="batch-count">已选 0 条</span>
+    <button class="btn" id="batch-delete">删除选中</button>
+    <button class="btn ghost" id="batch-done">完成</button>
   </div>
 
   <div class="year-nav" id="year-nav" hidden></div>
@@ -43,7 +51,7 @@ const staticMemories = memories.map(m => ({
 
 <script>
   import { sceneHTML, initScenes } from '../scripts/scene-engine';
-  import { fetchOnlineMemories, deleteMemory, esc, imagesOf, type OnlineMemory } from '../scripts/memories-shared';
+  import { fetchOnlineMemories, deleteMemory, deleteMemories, esc, imagesOf, isVideo, type OnlineMemory } from '../scripts/memories-shared';
   import { isLoggedIn, askPassword, openMemoryForm } from '../scripts/memory-admin';
   import { stackHTML, initStacks } from '../scripts/photo-stack';
 
@@ -66,11 +74,19 @@ const staticMemories = memories.map(m => ({
     return list.map(m => ({ ...m, body: m.content, online: m }));
   }
 
+  let batchMode = false;
+
   function cardHTML(item: Item, index: number): string {
     const side = item.online ? (index % 2 ? 'right' : 'left') : (item.side || 'left');
     const tilt = item.tilt || (index % 2 ? 'tilt-r' : 'tilt-ls');
-    const imgs = item.online ? imagesOf(item.online) : (item.image ? [item.image] : []);
+    const batchCheck = batchMode && item.online
+      ? `<label class="batch-check-label"><input type="checkbox" class="batch-check" data-id="${item.id}" /></label>` : '';
+    const media = item.online ? imagesOf(item.online) : (item.image ? [item.image] : []);
     const alt = esc(item.alt || item.title);
+    const videos = media.filter(isVideo);
+    const imgs = media.filter(u => !isVideo(u));
+    const videoHTML = videos.map(v => `
+      <video class="tl-video" src="${esc(v)}" controls playsinline preload="metadata"></video>`).join('');
     const photo = imgs.length > 1
       ? stackHTML(imgs, item.alt || item.title)
       : imgs.length === 1 ? `
@@ -86,9 +102,11 @@ const staticMemories = memories.map(m => ({
     <article class="tl-item ${side}" data-id="${item.id}">
       <div class="tl-dot"></div>
       <div class="tl-card card">
+        ${batchCheck}
         <div class="tl-date">${esc(item.date)}${item.online ? ' <span class="tl-badge">在线</span>' : ''}</div>
         <h2 class="tl-title">${esc(item.title)}</h2>
         ${photo}
+        ${videoHTML}
         ${sceneHTML(item.scene)}
         <div class="tl-content">${item.online ? escBody(item.body) : escBody(item.body)}</div>
         ${adminBtns}
@@ -197,14 +215,58 @@ const staticMemories = memories.map(m => ({
   adminToggle.addEventListener('click', () => {
     if (isLoggedIn()) {
       adminAdd.hidden = !adminAdd.hidden;
+      batchToggle.hidden = adminAdd.hidden;
       renderAll();
     } else {
-      askPassword(() => { adminAdd.hidden = false; renderAll(); });
+      askPassword(() => { adminAdd.hidden = false; batchToggle.hidden = false; renderAll(); });
     }
   });
   adminAdd.addEventListener('click', () => openMemoryForm(null, { onChanged: renderAll }));
 
-  if (isLoggedIn()) adminAdd.hidden = false;
+  if (isLoggedIn()) { adminAdd.hidden = false; batchToggle.hidden = false; }
+
+  // ===== 批量管理 =====
+  const batchBar = document.getElementById('batch-bar')!;
+  const batchAll = document.getElementById('batch-all') as HTMLInputElement;
+  const batchCount = document.getElementById('batch-count')!;
+
+  function selectedIds(): string[] {
+    return [...timelineEl.querySelectorAll<HTMLInputElement>('.batch-check:checked')].map(c => c.dataset.id!);
+  }
+  function refreshBatchCount() {
+    batchCount.textContent = `已选 ${selectedIds().length} 条`;
+  }
+  batchToggle.addEventListener('click', () => {
+    batchMode = !batchMode;
+    (batchBar as HTMLElement).hidden = !batchMode;
+    batchToggle.textContent = batchMode ? '退出批量' : '☑ 批量管理';
+    renderVisible();
+  });
+  document.getElementById('batch-done')!.addEventListener('click', () => {
+    batchMode = false;
+    (batchBar as HTMLElement).hidden = true;
+    batchToggle.textContent = '☑ 批量管理';
+    renderVisible();
+  });
+  batchAll.addEventListener('change', () => {
+    timelineEl.querySelectorAll<HTMLInputElement>('.batch-check').forEach(c => { c.checked = batchAll.checked; });
+    refreshBatchCount();
+  });
+  timelineEl.addEventListener('change', e => {
+    if ((e.target as HTMLElement).classList.contains('batch-check')) refreshBatchCount();
+  });
+  document.getElementById('batch-delete')!.addEventListener('click', async () => {
+    const ids = selectedIds();
+    if (!ids.length) { alert('先勾选要删除的回忆'); return; }
+    if (!confirm(`确定删除选中的 ${ids.length} 条回忆吗？此操作不可恢复。`)) return;
+    try {
+      await deleteMemories(ids);
+      batchAll.checked = false;
+      refreshBatchCount();
+      renderAll();
+    } catch { alert('删除失败，请重试'); }
+  });
+
   renderAll();
 </script>
 

@@ -50,7 +50,7 @@ export const onRequestGet: PagesFunction = async ({ env }) => {
   return json({ memories: list.sort((a, b) => a.sortDate.localeCompare(b.sortDate)) });
 };
 
-export const onRequestPost: PagesFunction = async ({ request, env }) => {
+const createMemory: PagesFunction = async ({ request, env }) => {
   if (!authed(request, env)) return json({ error: 'unauthorized' }, 401);
   let body: any;
   try { body = await request.json(); } catch { return json({ error: 'bad request' }, 400); }
@@ -105,11 +105,38 @@ export const onRequestPut: PagesFunction = async ({ request, env }) => {
 
 export const onRequestDelete: PagesFunction = async ({ request, env }) => {
   if (!authed(request, env)) return json({ error: 'unauthorized' }, 401);
-  const id = new URL(request.url).searchParams.get('id');
-  if (!id) return json({ error: '缺少 id' }, 400);
+  const url = new URL(request.url);
+  const ids = (url.searchParams.get('ids') || url.searchParams.get('id') || '').split(',').filter(Boolean);
+  if (!ids.length) return json({ error: '缺少 id' }, 400);
   const list = await readAll(env);
-  const next = list.filter(m => m.id !== id);
+  const next = list.filter(m => !ids.includes(m.id));
   if (next.length === list.length) return json({ error: '回忆不存在' }, 404);
   await env.DIARY.put('memories', JSON.stringify(next));
-  return json({ ok: true });
+  return json({ ok: true, removed: list.length - next.length });
+};
+
+// 批量移除照片：从各回忆的图片数组中删掉指定 URL（不删回忆本身）
+export const onRequestPost: PagesFunction = async ({ request, env }) => {
+  const url = new URL(request.url);
+  if (url.searchParams.get('action') === 'remove-images') {
+    if (!authed(request, env)) return json({ error: 'unauthorized' }, 401);
+    let body: any;
+    try { body = await request.json(); } catch { return json({ error: 'bad request' }, 400); }
+    const urls: string[] = Array.isArray(body.urls) ? body.urls : [];
+    if (!urls.length) return json({ error: '缺少 urls' }, 400);
+    const list = await readAll(env);
+    let changed = 0;
+    for (const m of list) {
+      const before = JSON.stringify([m.image, m.images]);
+      if (m.image && urls.includes(m.image)) m.image = undefined;
+      if (m.images) m.images = m.images.filter(u => !urls.includes(u));
+      if (m.image === undefined && m.images) m.image = m.images[0];
+      if (m.images && m.images.length === 0) m.images = undefined;
+      if (before !== JSON.stringify([m.image, m.images])) changed++;
+    }
+    await env.DIARY.put('memories', JSON.stringify(list));
+    return json({ ok: true, changed });
+  }
+  // 其余 POST 逻辑走新增回忆
+  return createMemory({ request, env });
 };

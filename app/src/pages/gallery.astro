@@ -4,7 +4,7 @@ import { getCollection } from 'astro:content';
 
 const photos = (await getCollection('timeline'))
   .filter(m => m.data.image)
-  .map(m => ({ image: m.data.image, alt: m.data.alt, date: m.data.date, title: m.data.title }));
+  .map(m => ({ image: m.data.image, alt: m.data.alt, date: m.data.date, title: m.data.title, sortDate: m.data.sortDate, city: m.data.city || '' }));
 ---
 <Base title="照片墙" active="/gallery/">
   <h1 class="hand-title">照片墙</h1>
@@ -13,9 +13,24 @@ const photos = (await getCollection('timeline'))
   <div class="admin-bar">
     <button class="btn ghost" id="admin-toggle">🔐 管理</button>
     <button class="btn" id="admin-add" hidden>＋ 添加照片</button>
+    <button class="btn ghost" id="batch-toggle" hidden>☑ 批量管理</button>
+  </div>
+
+  <div class="batch-bar" id="batch-bar" hidden>
+    <label><input type="checkbox" id="batch-all" /> 全选</label>
+    <span id="batch-count">已选 0 张</span>
+    <button class="btn" id="batch-delete">删除选中照片</button>
+    <button class="btn ghost" id="batch-done">完成</button>
+  </div>
+
+  <div class="view-tabs" id="view-tabs">
+    <button class="view-tab active" data-view="collage">拼贴</button>
+    <button class="view-tab" data-view="time">按时间</button>
+    <button class="view-tab" data-view="place">按地点</button>
   </div>
 
   <div class="gallery" id="gallery"></div>
+  <div id="grouped" hidden></div>
 
   <div class="lightbox" id="lightbox" hidden>
     <img id="lightbox-img" alt="放大预览" />
@@ -27,7 +42,7 @@ const photos = (await getCollection('timeline'))
 </script>
 
 <script>
-  import { fetchOnlineMemories, imagesOf } from '../scripts/memories-shared';
+  import { fetchOnlineMemories, imagesOf, isVideo, removeImages } from '../scripts/memories-shared';
   import { isLoggedIn, askPassword, openMemoryForm } from '../scripts/memory-admin';
 
   const galleryEl = document.getElementById('gallery')!;
@@ -36,32 +51,88 @@ const photos = (await getCollection('timeline'))
   const adminToggle = document.getElementById('admin-toggle') as HTMLButtonElement;
   const adminAdd = document.getElementById('admin-add') as HTMLButtonElement;
 
+  let allPhotos: any[] = [];
+  let currentView = 'collage';
+  let batchMode = false;
+
   async function renderAll() {
     const online = await fetchOnlineMemories();
     const onlinePhotos = online.flatMap(m =>
-      imagesOf(m).map(url => ({ image: url, alt: m.alt || m.title, date: m.date, title: m.title })));
-    const all = [...((window as any).__STATIC_PHOTOS || []), ...onlinePhotos]
-      .sort((a, b) => b.date.localeCompare(a.date));
+      imagesOf(m).map(url => ({ image: url, alt: m.alt || m.title, date: m.date, title: m.title, sortDate: m.sortDate, city: m.city || '', online: true })));
+    allPhotos = [...((window as any).__STATIC_PHOTOS || []), ...onlinePhotos]
+      .sort((a, b) => b.sortDate.localeCompare(a.sortDate));
+    renderView();
+  }
 
-    galleryEl.innerHTML = all.map((p, i) => `
-      <figure class="polaroid tape develop collage-item c${i % 6} ${i % 2 ? 'tilt-r' : 'tilt-l'}" data-full="${p.image}">
-        <div class="photo-frame">
-          <img src="${p.image}" alt="${p.alt}" loading="lazy" />
-          <div class="develop-veil" aria-hidden="true"></div>
-        </div>
-        <figcaption>${p.date} · ${p.title}</figcaption>
-      </figure>
-      ${i % 6 === 3 ? `<div class="collage-note c-note"><span>✎ 这些日子<br>都值得</span><svg viewBox="0 0 60 60" width="44" height="44"><path d="M30 50 C20 40 8 32 8 20 A11 11 0 0 1 30 12 A11 11 0 0 1 52 20 C52 32 40 40 30 50Z" fill="none" stroke="#d47b5c" stroke-width="2.4"/></svg></div>` : ''}
-    `).join('');
+  function photoCard(p: any, i: number) {
+    const check = batchMode && p.online
+      ? `<label class="batch-check-label"><input type="checkbox" class="batch-check" data-url="${p.image}" /></label>` : '';
+    if (isVideo(p.image)) {
+      return `<div class="collage-item c${i % 6} gallery-video">${check}
+        <video src="${p.image}" controls playsinline preload="metadata"></video>
+        <div class="gallery-video-caption">🎬 ${p.date} · ${p.title}</div>
+      </div>`;
+    }
+    return `<figure class="polaroid tape develop collage-item c${i % 6} ${i % 2 ? 'tilt-r' : 'tilt-l'}" data-full="${p.image}">${check}
+      <div class="photo-frame">
+        <img src="${p.image}" alt="${p.alt}" loading="lazy" />
+        <div class="develop-veil" aria-hidden="true"></div>
+      </div>
+      <figcaption>${p.date} · ${p.title}</figcaption>
+    </figure>`;
+  }
 
-    galleryEl.querySelectorAll('figure').forEach(f => {
-      f.addEventListener('click', () => {
+  function renderView() {
+    const isCollage = currentView === 'collage';
+    (galleryEl as HTMLElement).hidden = !isCollage;
+    (groupedEl as HTMLElement).hidden = isCollage;
+    if (isCollage) {
+      galleryEl.innerHTML = allPhotos.map((p, i) => photoCard(p, i) + (i % 6 === 3 ? `<div class="collage-note c-note"><span>✎ 这些日子<br>都值得</span><svg viewBox="0 0 60 60" width="44" height="44"><path d="M30 50 C20 40 8 32 8 20 A11 11 0 0 1 30 12 A11 11 0 0 1 52 20 C52 32 40 40 30 50Z" fill="none" stroke="#d47b5c" stroke-width="2.4"/></svg></div>` : '')).join('');
+    } else {
+      const groups = new Map<string, any[]>();
+      for (const p of allPhotos) {
+        const key = currentView === 'time'
+          ? `${p.sortDate.slice(0, 4)} 年 ${Number(p.sortDate.slice(5, 7))} 月`
+          : (p.city || '未标记地点');
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key)!.push(p);
+      }
+      groupedEl.innerHTML = [...groups.entries()].map(([key, list]) => `
+        <section class="photo-group">
+          <h3 class="group-title">${key}<span class="group-count">${list.length} 张</span></h3>
+          <div class="group-grid">
+            ${list.map((p, i) => photoCard(p, i)).join('')}
+          </div>
+        </section>`).join('');
+    }
+    bindLightbox();
+    observeDevelop();
+  }
+
+  function bindLightbox() {
+    document.querySelectorAll('#gallery figure, #grouped figure').forEach(f => {
+      f.addEventListener('click', e => {
+        if (batchMode) {
+          // 批量模式：点击照片即勾选
+          if ((e.target as HTMLElement).classList.contains('batch-check')) return;
+          const c = f.querySelector<HTMLInputElement>('.batch-check');
+          if (c) { c.checked = !c.checked; refreshBatchCount(); }
+          return;
+        }
         img.src = (f as HTMLElement).dataset.full || '';
         box.hidden = false;
       });
     });
-    observeDevelop();
   }
+
+  document.querySelectorAll<HTMLButtonElement>('.view-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.view-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      currentView = tab.dataset.view!;
+      renderView();
+    });
+  });
 
   const io = new IntersectionObserver(entries => {
     entries.forEach(en => {
@@ -73,7 +144,7 @@ const photos = (await getCollection('timeline'))
     });
   }, { threshold: 0.25 });
   function observeDevelop() {
-    galleryEl.querySelectorAll('.develop').forEach(el => io.observe(el));
+    document.querySelectorAll('#gallery .develop, #grouped .develop').forEach(el => io.observe(el));
   }
 
   box.addEventListener('click', () => { box.hidden = true; });
@@ -82,17 +153,82 @@ const photos = (await getCollection('timeline'))
   adminToggle.addEventListener('click', () => {
     if (isLoggedIn()) {
       adminAdd.hidden = !adminAdd.hidden;
+      batchToggle.hidden = adminAdd.hidden;
     } else {
-      askPassword(() => { adminAdd.hidden = false; });
+      askPassword(() => { adminAdd.hidden = false; batchToggle.hidden = false; });
     }
   });
   adminAdd.addEventListener('click', () => openMemoryForm(null, { onChanged: renderAll }));
-  if (isLoggedIn()) adminAdd.hidden = false;
+  if (isLoggedIn()) { adminAdd.hidden = false; batchToggle.hidden = false; }
+
+  // ===== 批量管理 =====
+  const batchToggle = document.getElementById('batch-toggle') as HTMLButtonElement;
+  const batchBar = document.getElementById('batch-bar')!;
+  const batchAll = document.getElementById('batch-all') as HTMLInputElement;
+  const batchCount = document.getElementById('batch-count')!;
+
+  function selectedUrls(): string[] {
+    return [...document.querySelectorAll<HTMLInputElement>('.batch-check:checked')].map(c => c.dataset.url!);
+  }
+  function refreshBatchCount() {
+    batchCount.textContent = `已选 ${selectedUrls().length} 张`;
+  }
+  batchToggle.addEventListener('click', () => {
+    batchMode = !batchMode;
+    (batchBar as HTMLElement).hidden = !batchMode;
+    batchToggle.textContent = batchMode ? '退出批量' : '☑ 批量管理';
+    renderView();
+  });
+  document.getElementById('batch-done')!.addEventListener('click', () => {
+    batchMode = false;
+    (batchBar as HTMLElement).hidden = true;
+    batchToggle.textContent = '☑ 批量管理';
+    renderView();
+  });
+  batchAll.addEventListener('change', () => {
+    document.querySelectorAll<HTMLInputElement>('.batch-check').forEach(c => { c.checked = batchAll.checked; });
+    refreshBatchCount();
+  });
+  document.addEventListener('change', e => {
+    if ((e.target as HTMLElement).classList.contains('batch-check')) refreshBatchCount();
+  });
+  document.getElementById('batch-delete')!.addEventListener('click', async () => {
+    const urls = selectedUrls();
+    if (!urls.length) { alert('先勾选要删除的照片'); return; }
+    if (!confirm(`确定从回忆中移除选中的 ${urls.length} 张照片吗？`)) return;
+    try {
+      await removeImages(urls);
+      batchAll.checked = false;
+      refreshBatchCount();
+      renderAll();
+    } catch { alert('删除失败，请重试'); }
+  });
 
   renderAll();
 </script>
 
 <style is:global>
+/* 视图切换 */
+.view-tabs { display: flex; justify-content: center; gap: 4px; margin-bottom: 28px; border-bottom: 1.5px solid #e8dcc4; padding-bottom: 0; }
+.view-tab {
+  padding: 8px 26px; background: none; border: none; cursor: pointer;
+  font-family: var(--font-hand); font-size: 17px; color: var(--ink-soft);
+  border-bottom: 3px solid transparent; margin-bottom: -1.5px;
+  transition: color .2s;
+}
+.view-tab:hover { color: var(--ink); }
+.view-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+/* 分组视图 */
+.photo-group { margin-bottom: 44px; }
+.group-title {
+  font-size: 22px; margin-bottom: 20px; display: flex; align-items: baseline; gap: 14px;
+  border-bottom: 2px dashed #e3d9c8; padding-bottom: 10px;
+}
+.group-count { font-size: 14px; color: var(--ink-soft); font-weight: 400; }
+.group-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 24px; }
+.group-grid .collage-item { grid-column: auto !important; margin-top: 0 !important; }
+.group-grid .gallery-video { grid-column: auto; }
+
 .gallery {
   display: grid; grid-template-columns: repeat(12, 1fr);
   gap: 30px 26px; padding: 16px 4px; align-items: start;

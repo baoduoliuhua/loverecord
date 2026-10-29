@@ -447,3 +447,64 @@ body.night main, body.night .nav, body.night .footer { position: relative; z-ind
   .desk { pointer-events: none; }
   .stamp-wrap, .desk-note { pointer-events: auto; }
 }
+
+/* 站点设置 */
+.settings-btn {
+  width: 38px; height: 38px; border-radius: 50%;
+  background: #fffdf8; border: 1.5px solid #e0d5c2;
+  color: var(--ink-soft); font-size: 19px; cursor: pointer;
+  transition: transform .3s;
+}
+.settings-btn:hover { transform: rotate(60deg); color: var(--accent); }
+.ann-row { display: flex; gap: 10px; margin-top: 10px; align-items: center; }
+.ann-row .ann-title { flex: 1; }
+.ann-row .ann-date { width: 150px; }
+.ann-del {
+  width: 26px; height: 26px; border-radius: 50%; border: none; flex: none;
+  background: #c0615a; color: #fff; cursor: pointer; font-size: 14px;
+}
+
+/* 管理弹层（全站共用） */
+.admin-modal {
+  position: fixed; inset: 0; z-index: 200; overflow-y: auto;
+  background: rgba(30,26,20,.5); display: flex; align-items: flex-start; justify-content: center;
+  padding: 40px 16px;
+}
+.admin-modal-card { width: 100%; max-width: 560px; background: #fffdf8; }
+.admin-row { display: flex; gap: 14px; }
+.admin-form-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px; }
+.admin-form-error { color: #c0615a; margin-top: 12px; }
+@media (max-width: 720px) { .admin-row { flex-direction: column; } }
+
+/* 视频与长图 */
+.tl-video { width: 100%; border-radius: 10px; margin: 10px 0; background: #1a1a1a; max-height: 420px; }
+.gallery-video video { width: 100%; border-radius: 10px; background: #1a1a1a; }
+.gallery-video-caption { text-align: center; color: var(--ink-soft); font-size: 14px; margin-top: 8px; }
+.admin-video-placeholder {
+  width: 84px; height: 84px; display: flex; align-items: center; justify-content: center;
+  font-size: 32px; background: var(--paper-dark); border-radius: 8px;
+}
+/* 灯箱长图：容器可滚动，图片按宽度完整显示 */
+.lightbox { overflow-y: auto; align-items: flex-start; }
+.lightbox img { max-height: none; width: auto; max-width: 92vw; margin: 20px auto; }
+.stack-lightbox { overflow-y: auto; }
+.stack-lightbox img { max-height: none; max-width: 78vw; margin: 30px 0; }
+.exif-tip { margin-top: 10px; font-size: 13px; color: var(--green); }
+
+/* 批量管理 */
+.batch-bar {
+  display: flex; align-items: center; justify-content: center; gap: 18px;
+  padding: 12px 18px; margin-bottom: 22px;
+  background: #fffdf8; border: 1.5px dashed #e0d5c2; border-radius: 12px;
+}
+.batch-bar[hidden] { display: none; }
+.batch-bar label { display: flex; align-items: center; gap: 6px; margin: 0; }
+.batch-bar input[type="checkbox"] { width: 17px; height: 17px; }
+#batch-count { color: var(--ink-soft); font-size: 14px; }
+.batch-check-label {
+  position: absolute; top: 8px; left: 8px; z-index: 20; margin: 0;
+  background: rgba(255,253,248,.92); border-radius: 6px; padding: 2px 4px;
+}
+.batch-check-label input { width: 20px; height: 20px; cursor: pointer; }
+.tl-card, .gallery-video { position: relative; }
+.gallery figure.polaroid { position: relative; }

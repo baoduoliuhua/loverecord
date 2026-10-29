@@ -41,16 +41,18 @@ const season = m >= 3 && m <= 5 ? 'spring' : m >= 6 && m <= 8 ? 'summer' : m >= 
       <div class="days-date">始于 {site.startDate.replaceAll('-', '.')}</div>
     </div>
     {upcoming && (
-      <p class="upcoming">📅 距离「{upcoming.title}」纪念日还有
+      <p class="upcoming" id="upcoming" data-fallback={upcoming.left}>📅 距离「{upcoming.title}」纪念日还有
         <span class="flip-clock" data-value={upcoming.left} aria-label={`${upcoming.left} 天`}></span> 天
       </p>
     )}
+    {!upcoming && <p class="upcoming" id="upcoming" hidden></p>}
     <div class="miss-wrap">
       <button class="miss-btn" id="miss-btn" aria-label="想你了">
         <svg viewBox="0 0 32 30" width="26" height="24"><path d="M16 28 C8 20 1 14 1 8 A7.5 7.5 0 0 1 16 5 A7.5 7.5 0 0 1 31 8 C31 14 24 20 16 28Z" fill="currentColor"/></svg>
         想你了
       </button>
       <span class="miss-count" id="miss-count"></span>
+      <button class="settings-btn" id="settings-btn" title="站点设置" aria-label="站点设置">⚙</button>
     </div>
   </section>
 
@@ -139,9 +141,127 @@ const season = m >= 3 && m <= 5 ? 'spring' : m >= 6 && m <= 8 ? 'summer' : m >= 
 .no-photo { aspect-ratio: 4/3; display: flex; align-items: center; justify-content: center; font-size: 64px; background: var(--paper-dark); border-radius: 2px; }
 </style>
 
-<script is:inline define:vars={{ allMemories, quotes: site.quotes }}>
+<script is:inline define:vars={{ allMemories, quotes: site.quotes, siteCfg: { coupleName: site.coupleName, startDate: site.startDate, anniversary: site.anniversary } }}>
   window.__ALL_MEMORIES = allMemories;
   window.__QUOTES = quotes;
+  window.__SITE_CFG = siteCfg;
+</script>
+
+<script>
+  // 站点设置：在线编辑情侣名/在一起日期/纪念日，覆盖 config 默认值
+  import { isLoggedIn, askPassword } from '../scripts/memory-admin';
+  import { authHeaders } from '../scripts/memories-shared';
+
+  const cfg = { ...(window as any).__SITE_CFG };
+
+  function calcDays(startDate: string) {
+    return Math.floor((Date.now() - new Date(startDate + 'T00:00:00').getTime()) / 86400000) + 1;
+  }
+
+  function renderUpcoming() {
+    const box = document.getElementById('upcoming')!;
+    const today = new Date();
+    const list = (cfg.anniversary || []).map((a: any) => {
+      const d = new Date(a.date);
+      let next = new Date(today.getFullYear(), d.getMonth(), d.getDate());
+      if (next < today) next = new Date(today.getFullYear() + 1, d.getMonth(), d.getDate());
+      return { ...a, left: Math.ceil((next.getTime() - today.getTime()) / 86400000) };
+    }).sort((a: any, b: any) => a.left - b.left);
+    if (!list.length) { (box as HTMLElement).hidden = true; return; }
+    const u = list[0];
+    (box as HTMLElement).hidden = false;
+    box.innerHTML = `📅 距离「${u.title}」纪念日还有
+      <span class="flip-clock" data-value="${u.left}" aria-label="${u.left} 天"></span> 天`;
+    (window as any).__initFlip?.();
+  }
+
+  function applyCfg() {
+    document.querySelector('.hero-title')!.textContent = cfg.coupleName;
+    document.querySelector('.heartbeat-num')!.textContent = String(calcDays(cfg.startDate));
+    document.querySelector('.days-date')!.textContent = '始于 ' + cfg.startDate.replaceAll('-', '.');
+    // 开屏封面同步
+    const bn = document.querySelector('.book-names'); if (bn) bn.textContent = cfg.coupleName;
+    const bd = document.querySelector('.book-date'); if (bd) bd.textContent = '始于 ' + cfg.startDate.replaceAll('-', '.');
+    renderUpcoming();
+  }
+
+  // 拉取云端设置覆盖默认值
+  fetch('/api/settings').then(r => r.ok ? r.json() : {}).then(remote => {
+    if (remote && Object.keys(remote).length) {
+      Object.assign(cfg, remote);
+      applyCfg();
+    }
+  }).catch(() => { /* 静态预览保持默认 */ });
+
+  // 设置弹层
+  document.getElementById('settings-btn')!.addEventListener('click', () => {
+    if (!isLoggedIn()) { askPassword(() => openSettings()); return; }
+    openSettings();
+  });
+
+  function openSettings() {
+    document.getElementById('settings-modal')?.remove();
+    const modal = document.createElement('div');
+    modal.id = 'settings-modal';
+    modal.className = 'admin-modal';
+    const rows = (cfg.anniversary || []).map((a: any, i: number) => `
+      <div class="ann-row" data-i="${i}">
+        <input class="ann-title" placeholder="名称（如：在一起）" maxlength="20" value="${a.title}" />
+        <input class="ann-date" type="date" value="${a.date}" />
+        <button type="button" class="ann-del" title="删除">×</button>
+      </div>`).join('');
+    modal.innerHTML = `
+      <div class="admin-modal-card card">
+        <h3 style="margin-bottom:18px">站点设置</h3>
+        <div style="margin-bottom:12px"><label>情侣名</label><input id="set-name" maxlength="30" value="${cfg.coupleName}" /></div>
+        <div style="margin-bottom:12px"><label>在一起日期</label><input id="set-start" type="date" value="${cfg.startDate}" /></div>
+        <label>纪念日（首页倒计时取最近一个）</label>
+        <div id="ann-list">${rows}</div>
+        <button type="button" class="btn ghost" id="ann-add" style="margin-top:10px">＋ 加纪念日</button>
+        <div class="admin-form-actions">
+          <button type="button" class="btn ghost" id="set-cancel">取消</button>
+          <button type="button" class="btn" id="set-save">保存</button>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+    const close = () => modal.remove();
+    modal.querySelector('#set-cancel')!.addEventListener('click', close);
+    modal.addEventListener('click', e => { if (e.target === modal) close(); });
+    modal.querySelector('#ann-add')!.addEventListener('click', () => {
+      const row = document.createElement('div');
+      row.className = 'ann-row';
+      row.innerHTML = `<input class="ann-title" placeholder="名称" maxlength="20" />
+        <input class="ann-date" type="date" />
+        <button type="button" class="ann-del" title="删除">×</button>`;
+      row.querySelector('.ann-del')!.addEventListener('click', () => row.remove());
+      modal.querySelector('#ann-list')!.appendChild(row);
+    });
+    modal.querySelectorAll('.ann-del').forEach(b => b.addEventListener('click', () => (b as HTMLElement).closest('.ann-row')!.remove()));
+
+    modal.querySelector('#set-save')!.addEventListener('click', async () => {
+      const payload = {
+        coupleName: (modal.querySelector('#set-name') as HTMLInputElement).value,
+        startDate: (modal.querySelector('#set-start') as HTMLInputElement).value,
+        anniversary: [...modal.querySelectorAll('.ann-row')].map(r => ({
+          title: (r.querySelector('.ann-title') as HTMLInputElement).value,
+          date: (r.querySelector('.ann-date') as HTMLInputElement).value,
+        })),
+      };
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        Object.assign(cfg, data);
+        applyCfg();
+        close();
+      } else {
+        alert(data.error || '保存失败');
+      }
+    });
+  }
 </script>
 
 <script>
@@ -219,7 +339,8 @@ const season = m >= 3 && m <= 5 ? 'spring' : m >= 6 && m <= 8 ? 'summer' : m >= 
 </script>
 
 <script>
-  // 纪念日翻牌：数字快速翻动后逐位定格
+  // 纪念日翻牌：数字快速翻动后逐位定格（暴露给设置更新后重放）
+  (window as any).__initFlip = () => {
   document.querySelectorAll<HTMLElement>('.flip-clock').forEach(clock => {
     const target = clock.dataset.value || '0';
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -254,4 +375,6 @@ const season = m >= 3 && m <= 5 ? 'spring' : m >= 6 && m <= 8 ? 'summer' : m >= 
       if (step >= totalSteps) clearInterval(timer);
     }, 90);
   });
+  };
+  (window as any).__initFlip();
 </script>

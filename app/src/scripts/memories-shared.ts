@@ -19,6 +19,10 @@ export function imagesOf(m: { image?: string; images?: string[] }): string[] {
   return m.image ? [m.image] : [];
 }
 
+export function isVideo(url: string): boolean {
+  return /\.(mp4|webm|mov)(\?|$)/i.test(url);
+}
+
 const PWD_KEY = 'loverecord-diary-pwd';
 
 export function getPassword(): string {
@@ -62,6 +66,22 @@ export async function deleteMemory(id: string): Promise<void> {
     method: 'DELETE', headers: authHeaders(),
   });
   if (!res.ok) throw new Error('删除失败');
+}
+
+export async function deleteMemories(ids: string[]): Promise<void> {
+  const res = await fetch(`/api/memories?ids=${ids.map(encodeURIComponent).join(',')}`, {
+    method: 'DELETE', headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error('批量删除失败');
+}
+
+export async function removeImages(urls: string[]): Promise<void> {
+  const res = await fetch('/api/memories?action=remove-images', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ urls }),
+  });
+  if (!res.ok) throw new Error('批量移除照片失败');
 }
 
 export async function uploadPhoto(file: File): Promise<string> {
