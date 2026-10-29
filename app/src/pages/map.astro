@@ -3,6 +3,13 @@ import Base from '../layouts/Base.astro';
 import { readFileSync } from 'node:fs';
 import { parse } from 'yaml';
 import outline from '../content/china-outline.json';
+import cityCoords from '../content/city-coords.json';
+import { getCollection } from 'astro:content';
+
+const staticMemories = (await getCollection('timeline')).map(m => ({
+  title: m.data.title, date: m.data.date, city: m.data.city || '',
+  image: m.data.image || '', sortDate: m.data.sortDate,
+}));
 
 interface Place { name: string; lat: number; lng: number; note: string }
 const places = parse(readFileSync('src/content/places.yaml', 'utf-8')) as Place[];
@@ -15,6 +22,8 @@ const project = (p: Place) => ({
 });
 const dots = places.map(p => ({ ...p, ...project(p) }));
 const route = dots.map(d => `${d.x},${d.y}`).join(' ');
+const projectParams = outline.project;
+const yamlPlaces = places.map(p => ({ name: p.name, lat: p.lat, lng: p.lng }));
 ---
 <Base title="足迹地图" active="/map/">
   <h1 class="hand-title">足迹地图</h1>
@@ -30,25 +39,112 @@ const route = dots.map(d => `${d.x},${d.y}`).join(' ');
       <g class="province-layer">
         {outline.provincePaths.map(d => <path d={d} />)}
       </g>
-      <!-- 航线 -->
-      {dots.length > 1 && (
-        <polyline points={route} class="route-line" />
-      )}
-      <!-- 城市点与标签 -->
-      {dots.map((d, i) => (
-        <g class={`city-dot city-${i}`}>
-          <circle class="dot-pulse" cx={d.x} cy={d.y} r="12" />
-          <circle class="dot-core" cx={d.x} cy={d.y} r="6" />
-          <text class="dot-label" x={d.x} y={d.y - 18} text-anchor="middle">{d.name}</text>
-        </g>
-      ))}
+      <!-- 航线与城市点：由 JS 动态渲染（yaml + 回忆中的城市合并） -->
+      <polyline id="route-line" class="route-line" points="" />
+      <g id="dots-layer"></g>
     </svg>
+  </div>
+
+  <!-- 城市回忆弹层 -->
+  <div class="city-modal" id="city-modal" hidden>
+    <div class="city-modal-card card">
+      <button class="city-modal-close" id="city-modal-close" aria-label="关闭">×</button>
+      <h3 id="city-modal-title"></h3>
+      <div id="city-modal-body"></div>
+    </div>
   </div>
 
   <ul class="place-list">
     {places.map(p => <li class="card"><strong>📍 {p.name}</strong><span>{p.note}</span></li>)}
   </ul>
 </Base>
+
+<script is:inline define:vars={{ staticMemories, projectParams, yamlPlaces, cityCoords }}>
+  window.__CITY_STATIC = staticMemories;
+  window.__MAP_PROJECT = projectParams;
+  window.__MAP_YAML = yamlPlaces;
+  window.__CITY_COORDS = cityCoords;
+</script>
+
+<script>
+  import { fetchOnlineMemories, imagesOf, esc } from '../scripts/memories-shared';
+
+  const modal = document.getElementById('city-modal')!;
+  const titleEl = document.getElementById('city-modal-title')!;
+  const bodyEl = document.getElementById('city-modal-body')!;
+  const close = () => { (modal as HTMLElement).hidden = true; };
+  document.getElementById('city-modal-close')!.addEventListener('click', close);
+  modal.addEventListener('click', e => { if (e.target === modal) close(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  const { minLng, maxLat, cos, scale } = (window as any).__MAP_PROJECT;
+  const project = (lat: number, lng: number) => ({
+    x: +((lng - minLng) * cos * scale).toFixed(1),
+    y: +((maxLat - lat) * scale).toFixed(1),
+  });
+
+  async function openCity(city: string) {
+    titleEl.textContent = `📍 ${city}的回忆`;
+    bodyEl.innerHTML = '<p style="color:var(--ink-soft)">翻找中…</p>';
+    (modal as HTMLElement).hidden = false;
+
+    const online = await fetchOnlineMemories().catch(() => []);
+    const staticList = ((window as any).__CITY_STATIC || [])
+      .filter((m: any) => m.city === city)
+      .map((m: any) => ({ ...m, images: m.image ? [m.image] : [] }));
+    const onlineList = online.filter(m => m.city === city)
+      .map(m => ({ title: m.title, date: m.date, sortDate: m.sortDate, images: imagesOf(m) }));
+    const all = [...staticList, ...onlineList].sort((a, b) => b.sortDate.localeCompare(a.sortDate));
+
+    bodyEl.innerHTML = all.length === 0
+      ? '<p style="color:var(--ink-soft)">这里还没有回忆。去时间轴写一条，关联城市填「' + esc(city) + '」就会出现在这里。</p>'
+      : all.map(m => `
+        <a class="city-memory" href="/timeline/">
+          ${m.images[0] ? `<img src="${esc(m.images[0])}" alt="${esc(m.title)}" />` : '<span class="city-memory-noimg">📖</span>'}
+          <span class="city-memory-info">
+            <span class="city-memory-title">${esc(m.title)}</span>
+            <span class="city-memory-date">${esc(m.date)}</span>
+          </span>
+        </a>`).join('');
+  }
+
+  // 城市合并：yaml（含备注）+ 静态回忆城市 + 在线回忆城市；坐标 yaml 优先，其次内置表
+  async function renderDots() {
+    const online = await fetchOnlineMemories().catch(() => []);
+    const coords: Record<string, [number, number]> = (window as any).__CITY_COORDS;
+    const map = new Map<string, { lat: number; lng: number }>();
+    for (const p of (window as any).__MAP_YAML || []) map.set(p.name, { lat: p.lat, lng: p.lng });
+    const cityNames = new Set<string>([
+      ...(window as any).__CITY_STATIC.map((m: any) => m.city).filter(Boolean),
+      ...online.map(m => m.city).filter(Boolean),
+    ]);
+    for (const name of cityNames) {
+      if (map.has(name)) continue;
+      if (coords[name]) map.set(name, { lng: coords[name][0], lat: coords[name][1] });
+    }
+
+    const dots = [...map.entries()].map(([name, c]) => ({ name, ...project(c.lat, c.lng) }));
+    const layer = document.getElementById('dots-layer')!;
+    layer.innerHTML = '';
+    const routeEl = document.getElementById('route-line') as unknown as SVGPolylineElement;
+    routeEl.setAttribute('points', dots.length > 1 ? dots.map(d => `${d.x},${d.y}`).join(' ') : '');
+
+    for (const d of dots) {
+      const g = document.createElementNS(SVGNS, 'g');
+      g.setAttribute('class', 'city-dot');
+      g.setAttribute('data-city', d.name);
+      g.style.cursor = 'pointer';
+      g.innerHTML = `
+        <circle class="dot-pulse" cx="${d.x}" cy="${d.y}" r="12"></circle>
+        <circle class="dot-core" cx="${d.x}" cy="${d.y}" r="6"></circle>
+        <text class="dot-label" x="${d.x}" y="${d.y - 18}" text-anchor="middle">${esc(d.name)}</text>`;
+      g.addEventListener('click', () => openCity(d.name));
+      layer.appendChild(g);
+    }
+  }
+  renderDots();
+</script>
 
 <style is:global>
 .map-paper {
@@ -62,7 +158,7 @@ const route = dots.map(d => `${d.x},${d.y}`).join(' ');
   stroke-linejoin: round; stroke-linecap: round;
 }
 .province-layer path {
-  fill: none; stroke: #cfc2ab; stroke-width: 0.7;
+  fill: #f3ecdf; stroke: #cfc2ab; stroke-width: 0.7;
   stroke-linejoin: round; stroke-linecap: round;
 }
 .route-line {

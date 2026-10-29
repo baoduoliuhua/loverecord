@@ -9,6 +9,7 @@ interface Memory {
   image?: string;
   images?: string[];
   alt?: string;
+  city?: string;
   content: string;
   createdAt: string;
 }
@@ -40,6 +41,7 @@ function validate(body: any): string | null {
     }
   }
   if (body.content && String(body.content).length > 5000) return '正文不超过5000字';
+  if (body.city && String(body.city).length > 20) return '城市名不超过20字';
   return null;
 }
 
@@ -66,6 +68,7 @@ export const onRequestPost: PagesFunction = async ({ request, env }) => {
     images: Array.isArray(body.images) && body.images.length ? body.images : undefined,
     alt: String(body.alt || '').slice(0, 100),
     content: String(body.content || '').trim(),
+    city: body.city ? String(body.city).trim() : undefined,
     createdAt: new Date().toISOString(),
   };
   list.push(item);
@@ -94,6 +97,7 @@ export const onRequestPut: PagesFunction = async ({ request, env }) => {
     images: Array.isArray(body.images) && body.images.length ? body.images : undefined,
     alt: String(body.alt || '').slice(0, 100),
     content: String(body.content || '').trim(),
+    city: body.city ? String(body.city).trim() : undefined,
   };
   await env.DIARY.put('memories', JSON.stringify(list));
   return json({ memory: list[idx] });

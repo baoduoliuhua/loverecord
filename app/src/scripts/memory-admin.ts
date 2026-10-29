@@ -51,6 +51,9 @@ export function openMemoryForm(existing: OnlineMemory | null, hooks: AdminHooks)
         <div style="margin-top:12px"><label>场景动画</label>
           <select name="scene">${SCENE_OPTIONS.map(([v, l]) => `<option value="${v}" ${existing?.scene === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
         </div>
+        <div style="margin-top:12px"><label>关联城市（可选，与足迹地图城市同名，如：南京）</label>
+          <input name="city" maxlength="20" placeholder="填了之后，点地图上的城市能看到这条回忆" value="${esc(existing?.city || '')}" />
+        </div>
         <div style="margin-top:12px"><label>正文</label><textarea name="content" rows="4" maxlength="5000" placeholder="这一天发生了什么…">${esc(existing?.content || '')}</textarea></div>
         <div style="margin-top:12px"><label>照片（可选，最多12张，每张≤8MB）</label>
           <input name="photo" type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif" />
@@ -126,6 +129,7 @@ export function openMemoryForm(existing: OnlineMemory | null, hooks: AdminHooks)
         date: sortDate.replaceAll('-', '.'),
         scene: (form.elements.namedItem('scene') as HTMLSelectElement).value,
         content: (form.elements.namedItem('content') as HTMLTextAreaElement).value,
+        city: (form.elements.namedItem('city') as HTMLInputElement).value.trim() || undefined,
         image: imageUrls[0] || undefined,
         images: imageUrls.length ? imageUrls : undefined,
         alt: (form.elements.namedItem('title') as HTMLInputElement).value,

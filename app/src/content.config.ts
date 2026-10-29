@@ -10,6 +10,7 @@ const timeline = defineCollection({
     scene: z.enum(['default', 'seaside', 'mountain', 'city', 'spring', 'summer', 'autumn', 'winter', 'rain', 'fireworks', 'starlight']).default('default'),
     image: z.string().optional(),
     alt: z.string().default(''),
+    city: z.string().optional(),
     side: z.enum(['left', 'right']).default('left'),
     tilt: z.enum(['tilt-l', 'tilt-r', 'tilt-ls', 'tilt-rs']).default('tilt-ls'),
   }),

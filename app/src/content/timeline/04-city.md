@@ -3,6 +3,7 @@ title: 城市跨年
 date: 2024.12.31
 sortDate: "2024-12-31"
 scene: city
+city: 上海
 side: right
 tilt: tilt-rs
 ---

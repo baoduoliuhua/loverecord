@@ -3,6 +3,7 @@ title: 第一次看海
 date: 2025.05.20
 sortDate: "2025-05-20"
 scene: seaside
+city: 青岛
 image: /assets/photos/demo-seaside.svg
 alt: 海边的合影
 side: right

@@ -8,6 +8,7 @@ export interface OnlineMemory {
   image?: string;
   images?: string[];
   alt?: string;
+  city?: string;
   content: string;
   createdAt: string;
 }
