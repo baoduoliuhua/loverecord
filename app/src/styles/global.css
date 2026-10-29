@@ -616,3 +616,22 @@ body.page-leave { animation: pageOut .24s ease forwards; }
 /* 打字机光标 */
 .typewriter::after { content: '│'; color: var(--accent); animation: caretBlink .8s step-end infinite; }
 @keyframes caretBlink { 50% { opacity: 0; } }
+
+/* 斑驳光影 */
+.light-dapple {
+  position: fixed; inset: -10%; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(ellipse 42% 30% at 72% 22%, rgba(255,214,150,.10), transparent 70%),
+    radial-gradient(ellipse 36% 26% at 24% 68%, rgba(255,214,150,.07), transparent 70%),
+    radial-gradient(ellipse 30% 22% at 82% 76%, rgba(255,255,255,.10), transparent 70%);
+  animation: dappleSway 16s ease-in-out infinite alternate;
+}
+@keyframes dappleSway {
+  from { background-position: 0 0, 0 0, 0 0; }
+  to { background-position: 3% 2%, -2% -2%, 2% -3%; }
+}
+/* 鼠标开花 */
+.bg-bloom { position: fixed; pointer-events: none; z-index: 9996; }
+@media (prefers-reduced-motion: reduce) { .light-dapple { animation: none; } }
+/* 内容层高于背景光影 */
+main { position: relative; z-index: 1; }
