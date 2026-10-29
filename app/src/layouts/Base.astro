@@ -60,33 +60,42 @@ const links = [
   <div class="desk desk-left" aria-hidden="true">
     <div class="desk-tape desk-tape-v"></div>
     <div class="desk-vertical-text">日 拱 一 卒</div>
-    <svg class="desk-plane" viewBox="0 0 120 100" width="110" height="92">
-      <path d="M10 55 L105 15 L60 85 L48 60 Z" fill="none" stroke="#b6a88f" stroke-width="2.2" stroke-linejoin="round"/>
-      <path d="M48 60 L105 15" fill="none" stroke="#b6a88f" stroke-width="2"/>
-      <path d="M10 55 L48 60 L60 85" fill="none" stroke="#b6a88f" stroke-width="1.4" opacity=".6"/>
-      <path d="M15 88 Q 40 78 66 88" fill="none" stroke="#cfc2ab" stroke-width="1.6" stroke-dasharray="4 5"/>
-    </svg>
+    <div class="desk-note" id="desk-note">点我翻一句 ↻</div>
+    <div class="plane-wrap" id="plane-wrap">
+      <svg class="desk-plane" viewBox="0 0 120 100" width="110" height="92">
+        <path d="M10 55 L105 15 L60 85 L48 60 Z" fill="none" stroke="#b6a88f" stroke-width="2.2" stroke-linejoin="round"/>
+        <path d="M48 60 L105 15" fill="none" stroke="#b6a88f" stroke-width="2"/>
+        <path d="M10 55 L48 60 L60 85" fill="none" stroke="#b6a88f" stroke-width="1.4" opacity=".6"/>
+        <path d="M15 88 Q 40 78 66 88" fill="none" stroke="#cfc2ab" stroke-width="1.6" stroke-dasharray="4 5"/>
+      </svg>
+    </div>
   </div>
   <div class="desk desk-right" aria-hidden="true">
     <div class="desk-tape desk-tape-v"></div>
-    <svg class="desk-stamp" viewBox="0 0 120 140" width="104" height="122">
-      <rect x="14" y="10" width="66" height="80" rx="4" fill="#fffdf8" stroke="#cfc2ab" stroke-width="2" stroke-dasharray="5 4"/>
-      <path d="M47 66 C40 58 30 50 30 40 A11 11 0 0 1 47 32 A11 11 0 0 1 64 40 C64 50 54 58 47 66Z" fill="none" stroke="#d47b5c" stroke-width="2.2"/>
-      <circle cx="86" cy="86" r="30" fill="none" stroke="#b6a88f" stroke-width="1.8"/>
-      <circle cx="86" cy="86" r="23" fill="none" stroke="#b6a88f" stroke-width="1"/>
-      <text x="86" y="82" text-anchor="middle" font-size="11" fill="#b6a88f" font-family="KaiTi,serif">我们的</text>
-      <text x="86" y="97" text-anchor="middle" font-size="11" fill="#b6a88f" font-family="KaiTi,serif">纪念日</text>
-      <path d="M20 118 Q 55 108 100 118" fill="none" stroke="#cfc2ab" stroke-width="1.6"/>
-    </svg>
-    <svg class="desk-flower" viewBox="0 0 100 130" width="86" height="112">
-      <path d="M50 125 Q 46 80 52 40" fill="none" stroke="#8aa87e" stroke-width="2.4"/>
-      <path d="M50 95 Q 30 88 26 70 Q 46 74 50 95Z" fill="#a8c29c" opacity=".8"/>
-      <path d="M50 80 Q 72 76 76 58 Q 56 62 50 80Z" fill="#a8c29c" opacity=".7"/>
-      <circle cx="52" cy="32" r="9" fill="#f0b8c6"/>
-      <circle cx="42" cy="38" r="8" fill="#f5c6d4"/>
-      <circle cx="62" cy="38" r="8" fill="#f5c6d4"/>
-      <circle cx="52" cy="40" r="5" fill="#c9a44c"/>
-    </svg>
+    <div class="stamp-wrap" id="stamp-wrap" role="button" tabindex="0" aria-label="盖一个纪念章">
+      <svg class="desk-stamp" viewBox="0 0 120 140" width="104" height="122">
+        <rect x="14" y="10" width="66" height="80" rx="4" fill="#fffdf8" stroke="#cfc2ab" stroke-width="2" stroke-dasharray="5 4"/>
+        <path d="M47 66 C40 58 30 50 30 40 A11 11 0 0 1 47 32 A11 11 0 0 1 64 40 C64 50 54 58 47 66Z" fill="none" stroke="#d47b5c" stroke-width="2.2"/>
+        <circle cx="86" cy="86" r="30" fill="none" stroke="#b6a88f" stroke-width="1.8"/>
+        <circle cx="86" cy="86" r="23" fill="none" stroke="#b6a88f" stroke-width="1"/>
+        <text x="86" y="82" text-anchor="middle" font-size="11" fill="#b6a88f" font-family="KaiTi,serif">我们的</text>
+        <text x="86" y="97" text-anchor="middle" font-size="11" fill="#b6a88f" font-family="KaiTi,serif">纪念日</text>
+        <path d="M20 118 Q 55 108 100 118" fill="none" stroke="#cfc2ab" stroke-width="1.6"/>
+      </svg>
+      <span class="stamp-hint">点我盖章</span>
+    </div>
+    <div class="flower-wrap" id="flower-wrap">
+      <svg class="desk-flower" viewBox="0 0 100 130" width="86" height="112">
+        <path d="M50 125 Q 46 80 52 40" fill="none" stroke="#8aa87e" stroke-width="2.4"/>
+        <path d="M50 95 Q 30 88 26 70 Q 46 74 50 95Z" fill="#a8c29c" opacity=".8"/>
+        <path d="M50 80 Q 72 76 76 58 Q 56 62 50 80Z" fill="#a8c29c" opacity=".7"/>
+        <circle cx="52" cy="32" r="9" fill="#f0b8c6"/>
+        <circle cx="42" cy="38" r="8" fill="#f5c6d4"/>
+        <circle cx="62" cy="38" r="8" fill="#f5c6d4"/>
+        <circle cx="52" cy="40" r="5" fill="#c9a44c"/>
+      </svg>
+    </div>
+    <div id="stamp-zone"></div>
   </div>
   <nav class="nav">
     <div class="container nav-inner">
@@ -117,6 +126,8 @@ const links = [
   <script>
     import '../scripts/cursor-magic';
     import { confetti } from '../scripts/confetti';
+    import { initDesk } from '../scripts/desk-interactions';
+    initDesk();
 
     // 开屏翻书：每个会话只出现一次
     const cover = document.getElementById('book-cover');
